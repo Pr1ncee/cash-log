@@ -64,22 +64,22 @@ func buildBasisBankDataColumnNameMapping(headerColumnNames []string) map[datatab
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"date"}); matched != "" {
-		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TIME)
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'TRANSACTION_TIME'", matched)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TIME] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"turnoverdeb", "turnoverdebit"}); matched != "" {
-		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_AMOUNT)
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'TABLE_AMOUNT'", matched)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_AMOUNT] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"description", "details"}); matched != "" {
-		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_DESCRIPTION)
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'DESCRIPTION'", matched)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"addinfo", "additionalinfo", "extrainfo"}); matched != "" {
-		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_PAYEE)
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'PAYEE'", matched)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_PAYEE] = matched
 	}
 
