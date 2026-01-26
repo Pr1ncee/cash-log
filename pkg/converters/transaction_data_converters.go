@@ -2,6 +2,7 @@ package converters
 
 import (
 	"github.com/mayswind/ezbookkeeping/pkg/converters/alipay"
+	"github.com/mayswind/ezbookkeeping/pkg/converters/basisbank"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/beancount"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/camt"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/converter"
@@ -78,6 +79,8 @@ func GetTransactionDataImporter(fileType string) (converter.TransactionDataImpor
 		return wechat.WeChatPayTransactionDataCsvFileImporter, nil
 	} else if fileType == "jdcom_finance_app_csv" {
 		return jdcom.JDComFinanceTransactionDataCsvFileImporter, nil
+	} else if fileType == "basisbank_xlsx" {
+		return basisbank.BasisBankTransactionDataXlsxFileImporter, nil
 	} else {
 		return nil, errs.ErrImportFileTypeNotSupported
 	}

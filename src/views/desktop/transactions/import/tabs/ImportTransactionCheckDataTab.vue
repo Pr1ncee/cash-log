@@ -1681,6 +1681,8 @@ function updateTransactionData(transaction: ImportTransaction): void {
             }
         }
     }
+
+    void syncTransactionAmountCurrency(transaction);
 }
 
 function updateAllTransactionsIsValid(): void {
@@ -1691,8 +1693,6 @@ function updateAllTransactionsIsValid(): void {
     for (const importTransaction of props.importTransactions) {
         updateTransactionData(importTransaction);
     }
-
-    void syncTransactionAmountCurrency(transaction);
 }
 
 function ensureLatestExchangeRates(): Promise<boolean> {

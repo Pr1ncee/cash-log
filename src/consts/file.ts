@@ -291,6 +291,18 @@ export const SUPPORTED_IMPORT_FILE_CATEGORY_AND_TYPES: ImportFileCategoryAndType
                     supportMultiLanguages: 'zh-Hans',
                     anchor: '如何获取京东金融账单文件'
                 }
+            },
+            {
+                type: 'xlsx',
+                name: 'Excel Workbook File',
+                extensions: '.xlsx',
+                subTypes: [
+                    {
+                        type: 'basisbank_xlsx',
+                        name: 'BasisBank Statement File',
+                        extensions: '.xlsx',
+                    }
+                ]
             }
         ]
     },
