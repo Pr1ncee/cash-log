@@ -16,6 +16,8 @@ export class ImportTransaction implements ImportTransactionResponse {
     public originalDestinationAccountCurrency?: string;
     public sourceAmount: number;
     public destinationAmount: number;
+    public sourceAmountCurrency?: string;
+    public destinationAmountCurrency?: string;
     public tagIds: string[];
     public originalTagNames: string[];
     public comment: string;
@@ -42,6 +44,8 @@ export class ImportTransaction implements ImportTransactionResponse {
         this.originalDestinationAccountCurrency = response.originalDestinationAccountCurrency;
         this.sourceAmount = response.sourceAmount;
         this.destinationAmount = response.destinationAmount || 0;
+        this.sourceAmountCurrency = response.originalSourceAccountCurrency;
+        this.destinationAmountCurrency = response.originalDestinationAccountCurrency;
         this.tagIds = response.tagIds || [];
         this.originalTagNames = response.originalTagNames || [];
         this.comment = response.comment;
