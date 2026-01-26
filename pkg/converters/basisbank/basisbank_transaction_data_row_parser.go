@@ -102,10 +102,10 @@ func (p *basisBankTransactionDataRowParser) Parse(data map[datatable.Transaction
 	description := strings.TrimSpace(data[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION])
 	addInfo := strings.TrimSpace(data[datatable.TRANSACTION_DATA_TABLE_PAYEE])
 
-	log.Infof(nil, "[basisBankTransactionDataRowParser.Parse] aaaaddInfo: \"%s\"", addInfo)
-
 	if strings.Contains(description, "Private Transfer") {
 		privateTransferName := extractPrivateTransferName(addInfo)
+
+		log.Infof(nil, "[basisbank_transaction_data_row_parser.Parse] Got Private Transfer: \"%s\"", privateTransferName)
 
 		if privateTransferName != "" {
 			description = privateTransferName

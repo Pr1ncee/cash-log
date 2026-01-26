@@ -34,8 +34,6 @@ var (
 func (c *basisBankTransactionDataXlsxFileImporter) ParseImportedData(ctx core.Context, user *models.User, data []byte, defaultTimezone *time.Location, additionalOptions converter.TransactionDataImporterOptions, accountMap map[string]*models.Account, expenseCategoryMap map[string]map[string]*models.TransactionCategory, incomeCategoryMap map[string]map[string]*models.TransactionCategory, transferCategoryMap map[string]map[string]*models.TransactionCategory, tagMap map[string]*models.TransactionTag) (models.ImportedTransactionSlice, []*models.Account, []*models.TransactionCategory, []*models.TransactionCategory, []*models.TransactionCategory, []*models.TransactionTag, error) {
 	dataTable, err := excel.CreateNewExcelOOXMLFileBasicDataTable(data, true)
 
-	log.Infof(ctx, "excel data table: %+v", dataTable)
-
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, err
 	}
@@ -56,10 +54,8 @@ func buildBasisBankDataColumnNameMapping(headerColumnNames []string) map[datatab
 	headerNameMap := make(map[string]string, len(headerColumnNames))
 
 	for _, headerName := range headerColumnNames {
-		log.Debugf(nil, "unnormalized header name: %s", headerName)
 		normalized := normalizeBasisBankHeaderName(headerName)
 
-		log.Debugf(nil, "NORMALIZED header name: %s", normalized)
 		if normalized == "" {
 			continue
 		}
@@ -68,18 +64,22 @@ func buildBasisBankDataColumnNameMapping(headerColumnNames []string) map[datatab
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"date"}); matched != "" {
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TIME)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_TRANSACTION_TIME] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"turnoverdeb", "turnoverdebit"}); matched != "" {
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_AMOUNT)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_AMOUNT] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"description", "details"}); matched != "" {
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_DESCRIPTION)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION] = matched
 	}
 
 	if matched := matchHeaderName(headerNameMap, []string{"addinfo", "additionalinfo", "extrainfo"}); matched != "" {
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column \"%s\"", matched, datatable.TRANSACTION_DATA_TABLE_PAYEE)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_PAYEE] = matched
 	}
 
@@ -106,9 +106,6 @@ func normalizeBasisBankHeaderName(name string) string {
 }
 
 func matchHeaderName(headerNameMap map[string]string, candidates []string) string {
-	log.Debugf(nil, "matchHeaderName")
-	log.Debugf(nil, "candidates: %v", candidates)
-	log.Debugf(nil, "headerNameMap: %v", headerNameMap)
 	for _, candidate := range candidates {
 		if headerName, exists := headerNameMap[candidate]; exists {
 			return headerName
