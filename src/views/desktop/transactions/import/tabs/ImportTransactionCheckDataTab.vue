@@ -169,7 +169,7 @@
             <div class="d-flex align-center" :style="`width: ${item.type === TransactionType.Transfer && item.sourceAccountId !== item.destinationAccountId ? 250 : 100}px`" v-if="editingTransaction === item">
                 <amount-input density="compact" variant="plain"
                               persistent-placeholder
-                              :currency="item.originalSourceAccountCurrency || defaultCurrency"
+                              :currency="getTransactionSourceCurrency(item)"
                               :show-currency="true"
                               :disabled="!!disabled"
                               :placeholder="tt('Amount')"
@@ -177,7 +177,7 @@
                 <v-icon class="icon-with-direction mx-1" size="13" :icon="mdiArrowRight" v-if="item.type === TransactionType.Transfer && item.sourceAccountId !== item.destinationAccountId"></v-icon>
                 <amount-input density="compact" variant="plain"
                               persistent-placeholder
-                              :currency="item.originalDestinationAccountCurrency || defaultCurrency"
+                              :currency="getTransactionDestinationCurrency(item)"
                               :show-currency="true"
                               :disabled="!!disabled"
                               :placeholder="tt('Transfer In Amount')"
@@ -404,7 +404,7 @@ import BatchReplaceDialog, { type BatchReplaceDialogDataType } from '../dialogs/
 import BatchReplaceAllTypesDialog from '../dialogs/BatchReplaceAllTypesDialog.vue';
 import BatchCreateDialog, { type BatchCreateDialogDataType } from '../dialogs/BatchCreateDialog.vue';
 
-import { ref, computed, useTemplateRef } from 'vue';
+import { ref, computed, useTemplateRef, watch } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 import { useTransactionTagSelectionBase } from '@/components/base/TransactionTagSelectionBase.ts';
@@ -414,6 +414,7 @@ import { useUserStore } from '@/stores/user.ts';
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
 import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
+import { useExchangeRatesStore } from '@/stores/exchangeRates.ts';
 
 import { type NameValue, type NameNumeralValue, itemAndIndex, reversed, keys } from '@/core/base.ts';
 import { type NumeralSystem, AmountFilterType } from '@/core/numeral.ts';
@@ -521,6 +522,7 @@ const userStore = useUserStore();
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
 const transactionTagsStore = useTransactionTagsStore();
+const exchangeRatesStore = useExchangeRatesStore();
 
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const batchReplaceDialog = useTemplateRef<BatchReplaceDialogType>('batchReplaceDialog');
@@ -572,6 +574,8 @@ const hasVisibleTransferCategories = computed<boolean>(() => transactionCategori
 
 const isEditing = computed<boolean>(() => !!editingTransaction.value);
 const canImport = computed<boolean>(() => selectedImportTransactionCount.value > 0 && selectedInvalidTransactionCount.value < 1);
+
+let exchangeRatesPromise: Promise<boolean> | null = null;
 
 const filterMenus = computed<ImportTransactionCheckDataMenuGroup[]>(() => [
     {
@@ -1357,14 +1361,35 @@ function getDisplayCurrency(value: number, currencyCode: string): string {
     return formatAmountToLocalizedNumeralsWithCurrency(value, currencyCode);
 }
 
-function getTransactionDisplayAmount(transaction: ImportTransaction): string {
-    let currency = transaction.originalSourceAccountCurrency || defaultCurrency.value;
+function getSelectedAccountCurrency(accountId?: string): string | undefined {
+    if (!accountId || accountId === '0' || !allAccountsMap.value[accountId]) {
+        return undefined;
+    }
+    return allAccountsMap.value[accountId]!.currency;
+}
 
-    if (transaction.sourceAccountId && transaction.sourceAccountId !== '0' && allAccountsMap.value[transaction.sourceAccountId]) {
-        currency = allAccountsMap.value[transaction.sourceAccountId]!.currency;
+function getTransactionAmountCurrency(transaction: ImportTransaction, direction: 'source' | 'destination'): string | undefined {
+    if (direction === 'source') {
+        return transaction.sourceAmountCurrency || transaction.originalSourceAccountCurrency;
     }
 
-    return getDisplayCurrency(transaction.sourceAmount, currency);
+    return transaction.destinationAmountCurrency || transaction.originalDestinationAccountCurrency;
+}
+
+function getTransactionSourceCurrency(transaction: ImportTransaction): string {
+    return getSelectedAccountCurrency(transaction.sourceAccountId)
+        || getTransactionAmountCurrency(transaction, 'source')
+        || defaultCurrency.value;
+}
+
+function getTransactionDestinationCurrency(transaction: ImportTransaction): string {
+    return getSelectedAccountCurrency(transaction.destinationAccountId)
+        || getTransactionAmountCurrency(transaction, 'destination')
+        || defaultCurrency.value;
+}
+
+function getTransactionDisplayAmount(transaction: ImportTransaction): string {
+    return getDisplayCurrency(transaction.sourceAmount, getTransactionSourceCurrency(transaction));
 }
 
 function getTransactionDisplayDestinationAmount(transaction: ImportTransaction): string {
@@ -1372,13 +1397,7 @@ function getTransactionDisplayDestinationAmount(transaction: ImportTransaction):
         return '-';
     }
 
-    let currency = transaction.originalDestinationAccountCurrency || defaultCurrency.value;
-
-    if (transaction.destinationAccountId && transaction.destinationAccountId !== '0' && allAccountsMap.value[transaction.destinationAccountId]) {
-        currency = allAccountsMap.value[transaction.destinationAccountId]!.currency;
-    }
-
-    return getDisplayCurrency(transaction.destinationAmount, currency);
+    return getDisplayCurrency(transaction.destinationAmount, getTransactionDestinationCurrency(transaction));
 }
 
 function getSourceAccountTitle(transaction: ImportTransaction): string {
@@ -1671,6 +1690,83 @@ function updateAllTransactionsIsValid(): void {
 
     for (const importTransaction of props.importTransactions) {
         updateTransactionData(importTransaction);
+    }
+
+    void syncTransactionAmountCurrency(transaction);
+}
+
+function ensureLatestExchangeRates(): Promise<boolean> {
+    if (exchangeRatesPromise) {
+        return exchangeRatesPromise;
+    }
+
+    exchangeRatesPromise = exchangeRatesStore.getLatestExchangeRates({
+        silent: true,
+        force: false
+    }).then(() => true).catch(error => {
+        if (error && error.isUpToDate) {
+            return true;
+        }
+
+        snackbar.value?.showError(error);
+        return false;
+    }).finally(() => {
+        exchangeRatesPromise = null;
+    });
+
+    return exchangeRatesPromise;
+}
+
+async function convertTransactionAmount(transaction: ImportTransaction, direction: 'source' | 'destination', targetCurrency: string): Promise<void> {
+    const currentCurrency = getTransactionAmountCurrency(transaction, direction);
+
+    if (!currentCurrency || currentCurrency === targetCurrency) {
+        return;
+    }
+
+    const exchangeRatesReady = await ensureLatestExchangeRates();
+
+    if (!exchangeRatesReady) {
+        return;
+    }
+
+    const amount = direction === 'source' ? transaction.sourceAmount : transaction.destinationAmount;
+    const exchangedAmount = exchangeRatesStore.getExchangedAmount(amount, currentCurrency, targetCurrency);
+
+    if (exchangedAmount === null) {
+        snackbar.value?.showError('Unable to convert currency');
+        return;
+    }
+
+    if (!Number.isFinite(exchangedAmount)) {
+        snackbar.value?.showError('Unable to convert currency');
+        return;
+    }
+
+    const normalizedAmount = Math.trunc(exchangedAmount);
+
+    if (direction === 'source') {
+        transaction.sourceAmount = normalizedAmount;
+        transaction.sourceAmountCurrency = targetCurrency;
+    } else {
+        transaction.destinationAmount = normalizedAmount;
+        transaction.destinationAmountCurrency = targetCurrency;
+    }
+}
+
+async function syncTransactionAmountCurrency(transaction: ImportTransaction): Promise<void> {
+    const targetSourceCurrency = getSelectedAccountCurrency(transaction.sourceAccountId);
+
+    if (targetSourceCurrency) {
+        await convertTransactionAmount(transaction, 'source', targetSourceCurrency);
+    }
+
+    if (transaction.type === TransactionType.Transfer) {
+        const targetDestinationCurrency = getSelectedAccountCurrency(transaction.destinationAccountId);
+
+        if (targetDestinationCurrency) {
+            await convertTransactionAmount(transaction, 'destination', targetDestinationCurrency);
+        }
     }
 }
 
@@ -2173,7 +2269,7 @@ function exportData(fileType: KnownFileType): void {
         const transactionTime = parseDateTimeFromUnixTimeWithTimezoneOffset(transaction.time, transaction.utcOffset);
         const type = getDisplayTransactionType(transaction);
         const accountName = transaction.sourceAccountId && transaction.sourceAccountId !== '0' && allAccountsMap.value[transaction.sourceAccountId] ? (allAccountsMap.value[transaction.sourceAccountId]?.name ?? transaction.originalSourceAccountName) : transaction.originalSourceAccountName;
-        const amountCurrency = transaction.sourceAccountId && transaction.sourceAccountId !== '0' && allAccountsMap.value[transaction.sourceAccountId] ? (allAccountsMap.value[transaction.sourceAccountId]?.currency ?? transaction.originalSourceAccountCurrency) : transaction.originalSourceAccountCurrency;
+        const amountCurrency = getTransactionSourceCurrency(transaction);
         const amount = formatAmountToWesternArabicNumeralsWithoutDigitGrouping(transaction.sourceAmount);
         const geographicLocation = transaction.geoLocation ? `${transaction.geoLocation.longitude} ${transaction.geoLocation.latitude}` : '';
         let categoryName = transaction.categoryId && transaction.categoryId !== '0' && allCategoriesMap.value[transaction.categoryId] ? (allCategoriesMap.value[transaction.categoryId]?.name ?? transaction.originalCategoryName) : transaction.originalCategoryName;
@@ -2185,7 +2281,7 @@ function exportData(fileType: KnownFileType): void {
             categoryName = '';
         } else if (transaction.type === TransactionType.Transfer) {
             relatedAccountName = transaction.destinationAccountId && transaction.destinationAccountId !== '0' && allAccountsMap.value[transaction.destinationAccountId] ? (allAccountsMap.value[transaction.destinationAccountId]?.name ?? transaction.originalDestinationAccountName) : transaction.originalDestinationAccountName;
-            relatedAccountCurrency = transaction.destinationAccountId && transaction.destinationAccountId !== '0' && allAccountsMap.value[transaction.destinationAccountId] ? (allAccountsMap.value[transaction.destinationAccountId]?.currency ?? transaction.originalDestinationAccountCurrency) : transaction.originalDestinationAccountCurrency;
+            relatedAccountCurrency = getTransactionDestinationCurrency(transaction);
             relatedAmount = formatAmountToWesternArabicNumeralsWithoutDigitGrouping(transaction.destinationAmount);
         }
 
@@ -2250,6 +2346,16 @@ function reset(): void {
 function setCountPerPage(count: number): void {
     countPerPage.value = count;
 }
+
+watch(() => props.importTransactions, (transactions) => {
+    if (!transactions || !transactions.length) {
+        return;
+    }
+
+    for (const transaction of transactions) {
+        updateTransactionData(transaction);
+    }
+}, { immediate: true });
 
 defineExpose({
     filterMenus,
