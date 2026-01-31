@@ -301,6 +301,11 @@ export const SUPPORTED_IMPORT_FILE_CATEGORY_AND_TYPES: ImportFileCategoryAndType
                         type: 'basisbank_xlsx',
                         name: 'BasisBank Statement File',
                         extensions: '.xlsx',
+                    },
+                    {
+                        type: 'credobank_xlsx',
+                        name: 'CredoBank Statement File',
+                        extensions: '.xlsx',
                     }
                 ]
             }

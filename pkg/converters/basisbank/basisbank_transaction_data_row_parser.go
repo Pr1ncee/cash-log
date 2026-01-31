@@ -13,12 +13,10 @@ import (
 
 const (
 	basisBankCurrency               = "GEL"
-	basisBankTransactionTypeIncome  = "Income"
 	basisBankTransactionTypeExpense = "Expense"
 )
 
 var basisBankTransactionTypeNameMapping = map[string]models.TransactionType{
-	basisBankTransactionTypeIncome:  models.TRANSACTION_TYPE_INCOME,
 	basisBankTransactionTypeExpense: models.TRANSACTION_TYPE_EXPENSE,
 }
 
@@ -111,7 +109,7 @@ func (p *basisBankTransactionDataRowParser) Parse(data map[datatable.Transaction
 			description = privateTransferName
 		}
 	} else {
-		merchantName := extractMerchantName(description)
+		merchantName := utils.ExtractMerchantName(basisBankDescriptionMerchantMatch, description)
 
 		if merchantName != "" {
 			description = merchantName
@@ -130,16 +128,6 @@ func (p *basisBankTransactionDataRowParser) Parse(data map[datatable.Transaction
 
 func createBasisBankTransactionDataRowParser() datatable.TransactionDataRowParser {
 	return &basisBankTransactionDataRowParser{}
-}
-
-func extractMerchantName(description string) string {
-	matches := basisBankDescriptionMerchantMatch.FindStringSubmatch(description)
-
-	if len(matches) > 0 {
-		return matches[basisBankDescriptionMerchantMatch.SubexpIndex("shop")]
-	}
-
-	return ""
 }
 
 func extractPrivateTransferName(addInfo string) string {

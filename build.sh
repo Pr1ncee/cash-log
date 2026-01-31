@@ -256,7 +256,7 @@ build_docker() {
 
     echo "Building docker image \"$docker_tag\" ($RELEASE_TYPE)..."
 
-    docker build . -t "$docker_tag" --build-arg RELEASE_BUILD=$RELEASE
+    docker build . -t "ezbookkeeping:latest" --build-arg RELEASE_BUILD=$RELEASE
 }
 
 main() {
