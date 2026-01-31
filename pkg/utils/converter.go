@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -192,4 +193,15 @@ func ParseAmount(amount string) (int64, error) {
 	}
 
 	return sign*integer*100 + sign*decimals, nil
+}
+
+// ExtractMerchantName returns a string which matches the regexp, otherwise returns a blank string
+func ExtractMerchantName(regexpPattern *regexp.Regexp, fullStr string) string {
+	matches := regexpPattern.FindStringSubmatch(fullStr)
+
+	if len(matches) > 0 {
+		return matches[regexpPattern.SubexpIndex("shop")]
+	}
+
+	return ""
 }

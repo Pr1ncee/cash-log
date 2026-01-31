@@ -6,6 +6,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/converters/beancount"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/camt"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/converter"
+	"github.com/mayswind/ezbookkeeping/pkg/converters/credobank"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/datatable"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/default"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/dsv"
@@ -81,6 +82,8 @@ func GetTransactionDataImporter(fileType string) (converter.TransactionDataImpor
 		return jdcom.JDComFinanceTransactionDataCsvFileImporter, nil
 	} else if fileType == "basisbank_xlsx" {
 		return basisbank.BasisBankTransactionDataXlsxFileImporter, nil
+	} else if fileType == "credobank_xlsx" {
+		return credobank.CredoBankTransactionDataXlsxFileImporter, nil
 	} else {
 		return nil, errs.ErrImportFileTypeNotSupported
 	}
