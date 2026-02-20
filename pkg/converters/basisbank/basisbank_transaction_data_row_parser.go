@@ -119,7 +119,13 @@ func (p *basisBankTransactionDataRowParser) Parse(data map[datatable.Transaction
 	data[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION] = description
 	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_NAME] = ""
 	data[datatable.TRANSACTION_DATA_TABLE_RELATED_ACCOUNT_NAME] = ""
-	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = basisBankCurrency
+	currency := strings.TrimSpace(data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY])
+
+	if currency == "" {
+		currency = basisBankCurrency
+	}
+
+	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = strings.ToUpper(currency)
 	data[datatable.TRANSACTION_DATA_TABLE_CATEGORY] = ""
 	data[datatable.TRANSACTION_DATA_TABLE_SUB_CATEGORY] = ""
 
