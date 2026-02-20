@@ -109,7 +109,13 @@ func (p *credoBankTransactionDataRowParser) Parse(data map[datatable.Transaction
 	data[datatable.TRANSACTION_DATA_TABLE_DESCRIPTION] = description
 	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_NAME] = ""
 	data[datatable.TRANSACTION_DATA_TABLE_RELATED_ACCOUNT_NAME] = ""
-	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = credoBankCurrency
+	currency := strings.TrimSpace(data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY])
+
+	if currency == "" {
+		currency = credoBankCurrency
+	}
+
+	data[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = strings.ToUpper(currency)
 	data[datatable.TRANSACTION_DATA_TABLE_CATEGORY] = ""
 	data[datatable.TRANSACTION_DATA_TABLE_SUB_CATEGORY] = ""
 

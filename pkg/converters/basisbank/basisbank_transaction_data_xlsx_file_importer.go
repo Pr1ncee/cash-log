@@ -18,6 +18,7 @@ var basisBankDataColumnNameMapping = map[datatable.TransactionDataTableColumn]st
 	datatable.TRANSACTION_DATA_TABLE_AMOUNT:           "Turnover (deb)",
 	datatable.TRANSACTION_DATA_TABLE_DESCRIPTION:      "Description",
 	datatable.TRANSACTION_DATA_TABLE_PAYEE:            "Additional Info",
+	datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY: "Currency",
 }
 
 // basisBankTransactionDataXlsxFileImporter defines the structure of BasisBank xlsx importer for transaction data
@@ -81,6 +82,11 @@ func buildBasisBankDataColumnNameMapping(headerColumnNames []string) map[datatab
 	if matched := matchHeaderName(headerNameMap, []string{"addinfo", "additionalinfo", "extrainfo"}); matched != "" {
 		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'PAYEE'", matched)
 		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_PAYEE] = matched
+	}
+
+	if matched := matchHeaderName(headerNameMap, []string{"currency", "ccy"}); matched != "" {
+		log.Infof(nil, "[buildBasisBankDataColumnNameMapping] matched header \"%s\" for column 'ACCOUNT_CURRENCY'", matched)
+		basisBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = matched
 	}
 
 	return basisBankDataColumnNameMapping

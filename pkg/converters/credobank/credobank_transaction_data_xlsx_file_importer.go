@@ -17,6 +17,7 @@ var credoBankDataColumnNameMapping = map[datatable.TransactionDataTableColumn]st
 	datatable.TRANSACTION_DATA_TABLE_AMOUNT:           "Turnover (DB)",
 	datatable.TRANSACTION_DATA_TABLE_DESCRIPTION:      "Description",
 	datatable.TRANSACTION_DATA_TABLE_PAYEE:            "Beneficiary Name",
+	datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY: "Currency",
 }
 
 // credoBankTransactionDataXlsxFileImporter defines the structure of CredoBank xlsx importer for transaction data
@@ -76,6 +77,10 @@ func buildCredoBankDataColumnNameMapping(headerColumnNames []string) map[datatab
 
 	if matched := matchCredoBankHeaderName(headerNameMap, []string{"beneficiaryname", "beneficiary"}); matched != "" {
 		credoBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_PAYEE] = matched
+	}
+
+	if matched := matchCredoBankHeaderName(headerNameMap, []string{"currency", "ccy"}); matched != "" {
+		credoBankDataColumnNameMapping[datatable.TRANSACTION_DATA_TABLE_ACCOUNT_CURRENCY] = matched
 	}
 
 	return credoBankDataColumnNameMapping
