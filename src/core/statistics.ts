@@ -130,6 +130,7 @@ export class ChartDataType implements TypeAndName {
     public static readonly NetCashFlow = new ChartDataType(15, 'Net Cash Flow', false, false, StatisticsAnalysisType.TrendAnalysis);
     public static readonly NetIncome = new ChartDataType(10, 'Net Income', false, false, StatisticsAnalysisType.TrendAnalysis);
     public static readonly NetWorth = new ChartDataType(17, 'Net Worth', false, false, StatisticsAnalysisType.AssetTrends);
+    public static readonly PreciousMetals = new ChartDataType(18, 'Precious Metals', false, false, StatisticsAnalysisType.TrendAnalysis);
 
     public static readonly Default = ChartDataType.ExpenseByPrimaryCategory;
     public static readonly DefaultForAssetTrends = ChartDataType.NetWorth;

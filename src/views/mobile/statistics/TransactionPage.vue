@@ -202,7 +202,7 @@
             </f7-card-content>
         </f7-card>
 
-        <f7-card v-else-if="analysisType === StatisticsAnalysisType.TrendAnalysis">
+        <f7-card v-else-if="analysisType === StatisticsAnalysisType.TrendAnalysis && query.chartDataType !== ChartDataType.PreciousMetals.type">
             <f7-card-header class="no-border display-block">
                 <div class="statistics-chart-header display-flex full-line justify-content-space-between">
                     <div></div>
@@ -234,6 +234,32 @@
                     hidden-field="hidden"
                     display-orders-field="displayOrders"
                     @click="onClickTrendChartItem"
+                />
+            </f7-card-content>
+        </f7-card>
+
+        <f7-card v-else-if="analysisType === StatisticsAnalysisType.TrendAnalysis && query.chartDataType === ChartDataType.PreciousMetals.type">
+            <f7-card-content style="margin-top: -14px" :padding="false">
+                <trends-bar-chart
+                    chart-mode="monthly"
+                    :loading="loading || reloading"
+                    :start-time="undefined"
+                    :end-time="undefined"
+                    :start-year-month="undefined"
+                    :end-year-month="undefined"
+                    :sorting-type="query.sortingType"
+                    :data-aggregation-type="ChartDataAggregationType.Last"
+                    :date-aggregation-type="trendDateAggregationType"
+                    :fiscal-year-start="fiscalYearStart"
+                    :items="preciousMetalsTrendsData && preciousMetalsTrendsData.items && preciousMetalsTrendsData.items.length ? preciousMetalsTrendsData.items : []"
+                    :stacked="false"
+                    :translate-name="translateNameInTrendsChart"
+                    :default-currency="defaultCurrency"
+                    id-field="id"
+                    name-field="name"
+                    value-field="totalAmount"
+                    hidden-field="hidden"
+                    display-orders-field="displayOrders"
                 />
             </f7-card-content>
         </f7-card>
@@ -482,6 +508,7 @@ const {
     translateNameInTrendsChart,
     categoricalAnalysisData,
     trendsAnalysisData,
+    preciousMetalsTrendsData,
     assetTrendsData,
     canShowCustomDateRange,
     getTransactionCategoricalAnalysisDataItemDisplayColor,
@@ -541,6 +568,11 @@ function init(): void {
                 force: false
             }) as Promise<unknown>;
         } else if (analysisType.value === StatisticsAnalysisType.TrendAnalysis) {
+            if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+                return statisticsStore.loadPreciousMetals({
+                    force: false
+                }) as Promise<unknown>;
+            }
             return statisticsStore.loadTrendAnalysis({
                 force: false
             }) as Promise<unknown>;
@@ -569,7 +601,11 @@ function reload(done?: () => void): void {
 
     reloading.value = true;
 
-    if (query.value.chartDataType === ChartDataType.OutflowsByAccount.type ||
+    if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+        dispatchPromise = statisticsStore.loadPreciousMetals({
+            force: force
+        });
+    } else if (query.value.chartDataType === ChartDataType.OutflowsByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByPrimaryCategory.type ||
         query.value.chartDataType === ChartDataType.ExpenseBySecondaryCategory.type ||
@@ -650,7 +686,8 @@ function setChartType(type?: number): void {
 }
 
 function setChartDataType(type: number, chartDataType: number): void {
-    let analysisTypeChanged = false;
+    let needReload = false;
+    const previousChartDataType = query.value.chartDataType;
 
     if (analysisType.value !== type) {
         if (!ChartDataType.isAvailableForAnalysisType(query.value.chartDataType, type)) {
@@ -661,14 +698,23 @@ function setChartDataType(type: number, chartDataType: number): void {
 
         analysisType.value = type;
         statisticsStore.updateTransactionStatisticsInvalidState(true);
-        analysisTypeChanged = true;
+        needReload = true;
     }
 
     statisticsStore.updateTransactionStatisticsFilter({
         chartDataType: chartDataType
     });
 
-    if (analysisTypeChanged) {
+    if (!needReload) {
+        const switchingToPreciousMetals = chartDataType === ChartDataType.PreciousMetals.type && previousChartDataType !== ChartDataType.PreciousMetals.type;
+        const switchingFromPreciousMetals = chartDataType !== ChartDataType.PreciousMetals.type && previousChartDataType === ChartDataType.PreciousMetals.type;
+
+        if (switchingToPreciousMetals || switchingFromPreciousMetals) {
+            needReload = true;
+        }
+    }
+
+    if (needReload) {
         reload();
     }
 }

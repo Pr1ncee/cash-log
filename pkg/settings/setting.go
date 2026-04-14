@@ -431,6 +431,11 @@ type Config struct {
 	ExchangeRatesRequestTimeoutExceedDefaultValue bool
 	ExchangeRatesProxy                            string
 	ExchangeRatesSkipTLSVerify                    bool
+
+	// Precious Metals
+	EnablePreciousMetals             bool
+	PreciousMetalsGoldAPIKey         string
+	PreciousMetalsHistoricalDataPath string
 }
 
 // LoadConfiguration loads setting config from given config file path
@@ -571,6 +576,8 @@ func LoadConfiguration(configFilePath string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	loadPreciousMetalsConfiguration(config, cfgFile, "precious_metals")
 
 	return config, nil
 }
@@ -1197,6 +1204,12 @@ func loadExchangeRatesConfiguration(config *Config, configFile *ini.File, sectio
 	config.ExchangeRatesSkipTLSVerify = getConfigItemBoolValue(configFile, sectionName, "skip_tls_verify", false)
 
 	return nil
+}
+
+func loadPreciousMetalsConfiguration(config *Config, configFile *ini.File, sectionName string) {
+	config.EnablePreciousMetals = getConfigItemBoolValue(configFile, sectionName, "enabled", false)
+	config.PreciousMetalsGoldAPIKey = getConfigItemStringValue(configFile, sectionName, "goldapi_key", "")
+	config.PreciousMetalsHistoricalDataPath = getConfigItemStringValue(configFile, sectionName, "historical_data_path", "gold_alltime_historical.csv")
 }
 
 func getWorkingPath() (string, error) {

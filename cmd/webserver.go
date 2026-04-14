@@ -23,6 +23,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/mcp"
 	"github.com/mayswind/ezbookkeeping/pkg/middlewares"
 	"github.com/mayswind/ezbookkeeping/pkg/requestid"
+	"github.com/mayswind/ezbookkeeping/pkg/services"
 	"github.com/mayswind/ezbookkeeping/pkg/settings"
 	"github.com/mayswind/ezbookkeeping/pkg/utils"
 	"github.com/mayswind/ezbookkeeping/pkg/validators"
@@ -55,6 +56,15 @@ func startWebServer(c *core.CliContext) error {
 
 		if err != nil {
 			log.BootErrorf(c, "[webserver.startWebServer] update database table structure failed, because %s", err.Error())
+			return err
+		}
+	}
+
+	if config.EnablePreciousMetals {
+		err = services.PreciousMetals.ImportHistoricalDataIfNeeded(c)
+
+		if err != nil {
+			log.BootErrorf(c, "[webserver.startWebServer] precious metals historical data import failed, because %s", err.Error())
 			return err
 		}
 	}
@@ -459,6 +469,13 @@ func startWebServer(c *core.CliContext) error {
 				if config.TransactionFromAIImageRecognition {
 					apiV1Route.POST("/llm/transactions/recognize_receipt_image.json", bindApi(api.LargeLanguageModels.RecognizeReceiptImageHandler))
 				}
+			}
+
+			// Precious Metals
+			if config.EnablePreciousMetals {
+				apiV1Route.GET("/precious_metals/prices.json", bindApi(api.PreciousMetalsHandler.PriceHistoryHandler))
+				apiV1Route.GET("/precious_metals/portfolio.json", bindApi(api.PreciousMetalsHandler.PortfolioHandler))
+				apiV1Route.POST("/precious_metals/refresh.json", bindApi(api.PreciousMetalsHandler.RefreshHandler))
 			}
 
 			// Exchange Rates

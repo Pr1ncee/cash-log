@@ -53,6 +53,8 @@ import {
     TransactionCategoricalOverviewAnalysisDataItemType
 } from '@/models/transaction.ts';
 
+import type { PreciousMetalPriceResponse } from '@/models/precious_metals.ts';
+
 import {
     isEquals,
     isNumber,
@@ -191,6 +193,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     const transactionCategoryStatisticsData = ref<TransactionStatisticResponse | null>(null);
     const transactionCategoryTrendsData = ref<TransactionStatisticTrendsResponseItem[]>([]);
     const transactionAssetTrendsData = ref<TransactionStatisticAssetTrendsResponseItem[]>([]);
+    const preciousMetalsPriceData = ref<PreciousMetalPriceResponse | null>(null);
     const transactionStatisticsStateInvalid = ref<boolean>(true);
 
     const categoricalAnalysisChartDataCategory = computed<string>(() => {
@@ -746,6 +749,43 @@ export const useStatisticsStore = defineStore('statistics', () => {
         return trendsData;
     });
 
+    const preciousMetalsTrendsData = computed<TransactionTrendsAnalysisData | null>(() => {
+        const priceData = preciousMetalsPriceData.value;
+
+        if (!priceData || !priceData.historicalData || !priceData.historicalData.length) {
+            return null;
+        }
+
+        const metalName = priceData.metal.charAt(0).toUpperCase() + priceData.metal.slice(1);
+        const items: TransactionTrendsAnalysisDataAmount[] = [];
+
+        for (const dataPoint of priceData.historicalData) {
+            const date = new Date(dataPoint.timestamp * 1000);
+
+            items.push({
+                year: date.getFullYear(),
+                month1base: date.getMonth() + 1,
+                totalAmount: Math.round(dataPoint.price * 100)
+            });
+        }
+
+        const trendItem: TransactionTrendsAnalysisDataItem = {
+            name: metalName,
+            type: 'account',
+            id: `metal_${priceData.metal}`,
+            icon: '910',
+            color: priceData.metal === 'gold' ? 'ffd700' : 'c0c0c0',
+            hidden: false,
+            displayOrders: [0],
+            totalAmount: Math.round(priceData.currentPrice * 100),
+            items: items
+        };
+
+        return {
+            items: [trendItem]
+        };
+    });
+
     const assetTrendsDataWithAccountInfo = computed<TransactionStatisticAssetTrendsResponseItemWithInfo[]>(() => {
         const assetTrendsData = transactionAssetTrendsData.value;
         const finalAssetTrendsData: TransactionStatisticAssetTrendsResponseItemWithInfo[] = [];
@@ -958,6 +998,40 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
         for (const assetTrendsDataItem of values(combinedDataMap)) {
             allAssetTrendsDataItems.push(assetTrendsDataItem);
+        }
+
+        // Include precious metals market value in Net Worth and Account Total Assets
+        if (preciousMetalsPriceData.value && preciousMetalsPriceData.value.historicalData && preciousMetalsPriceData.value.historicalData.length > 0 &&
+            (transactionStatisticsFilter.value.chartDataType === ChartDataType.NetWorth.type ||
+             transactionStatisticsFilter.value.chartDataType === ChartDataType.AccountTotalAssets.type)) {
+
+            const priceData = preciousMetalsPriceData.value;
+            const metalName = priceData.metal.charAt(0).toUpperCase() + priceData.metal.slice(1) + ' (Market)';
+            const metalItems: TransactionAssetTrendsAnalysisDataAmount[] = [];
+
+            for (const dataPoint of priceData.historicalData) {
+                const date = new Date(dataPoint.timestamp * 1000);
+                metalItems.push({
+                    year: date.getFullYear(),
+                    month: date.getMonth() + 1,
+                    day: date.getDate(),
+                    totalAmount: Math.round(dataPoint.price * 100)
+                });
+            }
+
+            const metalTrendItem: WritableTransactionAssetTrendsAnalysisDataItem = {
+                name: metalName,
+                type: 'account',
+                id: `precious_metal_${priceData.metal}`,
+                icon: '910',
+                color: priceData.metal === 'gold' ? 'ffd700' : 'c0c0c0',
+                hidden: false,
+                displayOrders: [Number.MAX_SAFE_INTEGER],
+                totalAmount: Math.round(priceData.currentPrice * 100),
+                items: metalItems
+            };
+
+            allAssetTrendsDataItems.push(metalTrendItem);
         }
 
         sortCategoryTotalAmountItems(allAssetTrendsDataItems, transactionStatisticsFilter.value);
@@ -1898,6 +1972,20 @@ export const useStatisticsStore = defineStore('statistics', () => {
     }
 
     function loadAssetTrends({ force }: { force: boolean }): Promise<TransactionStatisticAssetTrendsResponseItem[]> {
+        // Also fetch precious metals data in the background for asset trends integration
+        services.getPreciousMetalPrices({
+            metal: 'gold',
+            currency: 'USD',
+            unit: 'grams',
+            timeline: 'month'
+        }).then(response => {
+            if (response.data && response.data.success && response.data.result) {
+                preciousMetalsPriceData.value = response.data.result;
+            }
+        }).catch(error => {
+            logger.warn('failed to retrieve precious metals data for asset trends', error);
+        });
+
         return new Promise((resolve, reject) => {
             services.getTransactionStatisticsAssetTrends({
                 startTime: transactionStatisticsFilter.value.assetTrendsChartStartTime,
@@ -1936,17 +2024,91 @@ export const useStatisticsStore = defineStore('statistics', () => {
         });
     }
 
+    function getTimelineFromDateRange(dateType: number): string {
+        switch (dateType) {
+            case DateRange.ThisMonth.type:
+                return 'thismonth';
+            case DateRange.LastMonth.type:
+                return 'lastmonth';
+            case DateRange.ThisYear.type:
+            case DateRange.ThisFiscalYear.type:
+                return 'thisyear';
+            case DateRange.LastYear.type:
+            case DateRange.LastFiscalYear.type:
+                return 'lastyear';
+            case DateRange.RecentTwelveMonths.type:
+                return 'year';
+            case DateRange.RecentTwentyFourMonths.type:
+            case DateRange.RecentTwoYears.type:
+                return '3year';
+            case DateRange.RecentThirtySixMonths.type:
+            case DateRange.RecentThreeYears.type:
+                return '3year';
+            case DateRange.RecentFiveYears.type:
+                return '5year';
+            case DateRange.All.type:
+                return 'alltime';
+            default:
+                return 'year';
+        }
+    }
+
+    function loadPreciousMetals({ force }: { force: boolean }): Promise<PreciousMetalPriceResponse> {
+        const timeline = getTimelineFromDateRange(transactionStatisticsFilter.value.trendChartDateType);
+
+        return new Promise((resolve, reject) => {
+            services.getPreciousMetalPrices({
+                metal: 'gold',
+                currency: 'USD',
+                unit: 'grams',
+                timeline: timeline
+            }).then(response => {
+                const data = response.data;
+
+                if (!data || !data.success || !data.result) {
+                    reject({ message: 'Unable to retrieve precious metals data' });
+                    return;
+                }
+
+                if (transactionStatisticsStateInvalid.value) {
+                    updateTransactionStatisticsInvalidState(false);
+                }
+
+                if (force && data.result && isEquals(preciousMetalsPriceData.value, data.result)) {
+                    reject({ message: 'Data is up to date', isUpToDate: true });
+                    return;
+                }
+
+                preciousMetalsPriceData.value = data.result;
+
+                resolve(data.result);
+            }).catch(error => {
+                logger.error('failed to retrieve precious metals data', error);
+
+                if (error.response && error.response.data && error.response.data.errorMessage) {
+                    reject({ error: error.response.data });
+                } else if (!error.processed) {
+                    reject({ message: 'Unable to retrieve precious metals data' });
+                } else {
+                    reject(error);
+                }
+            });
+        });
+    }
+
     return {
         // states
         transactionStatisticsFilter,
         transactionCategoryStatisticsData,
         transactionCategoryTrendsData,
+        preciousMetalsPriceData,
         transactionStatisticsStateInvalid,
         // computed states
         categoricalAnalysisChartDataCategory,
         categoricalOverviewAnalysisData,
         categoricalAnalysisData,
         trendsAnalysisData,
+        preciousMetalsTrendsData,
         assetTrendsData,
         // functions
         updateTransactionStatisticsInvalidState,
@@ -1957,6 +2119,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         getTransactionListPageParams,
         loadCategoricalAnalysis,
         loadTrendAnalysis,
-        loadAssetTrends
+        loadAssetTrends,
+        loadPreciousMetals
     };
 });

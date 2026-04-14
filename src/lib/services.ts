@@ -62,6 +62,12 @@ import type {
     ImportTransactionResponsePageWrapper
 } from '@/models/imported_transaction.ts';
 import type {
+    PreciousMetalPriceRequest,
+    PreciousMetalPriceResponse,
+    PreciousMetalRefreshRequest,
+    PreciousMetalPortfolioResponse
+} from '@/models/precious_metals.ts';
+import type {
     TransactionCreateRequest,
     TransactionModifyRequest,
     TransactionMoveBetweenAccountsRequest,
@@ -583,6 +589,15 @@ export default {
         }
 
         return axios.get<ApiResponse<TransactionStatisticAssetTrendsResponseItem[]>>('v1/transactions/statistics/asset_trends.json' + (queryParams.length ? '?' + queryParams.join('&') : ''));
+    },
+    getPreciousMetalPrices: (req: PreciousMetalPriceRequest): ApiResponsePromise<PreciousMetalPriceResponse> => {
+        return axios.get<ApiResponse<PreciousMetalPriceResponse>>(`v1/precious_metals/prices.json?metal=${encodeURIComponent(req.metal)}&currency=${encodeURIComponent(req.currency)}&unit=${encodeURIComponent(req.unit)}&timeline=${encodeURIComponent(req.timeline)}`);
+    },
+    getPreciousMetalPortfolio: (): ApiResponsePromise<PreciousMetalPortfolioResponse> => {
+        return axios.get<ApiResponse<PreciousMetalPortfolioResponse>>('v1/precious_metals/portfolio.json');
+    },
+    refreshPreciousMetalData: (req: PreciousMetalRefreshRequest): ApiResponsePromise<PreciousMetalPriceResponse> => {
+        return axios.post<ApiResponse<PreciousMetalPriceResponse>>('v1/precious_metals/refresh.json', req);
     },
     getTransactionAmounts: (params: TransactionAmountsRequestParams, excludeAccountIds: string[], excludeCategoryIds: string[]): ApiResponsePromise<TransactionAmountsResponse> => {
         const req = TransactionAmountsRequest.of(params);

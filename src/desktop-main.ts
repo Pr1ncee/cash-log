@@ -57,6 +57,7 @@ import {
     GridComponent,
     TooltipComponent,
     LegendComponent,
+    DataZoomInsideComponent,
 } from 'echarts/components';
 import VChart from 'vue-echarts';
 
@@ -508,7 +509,8 @@ echarts.use([
     SankeyChart,
     GridComponent,
     TooltipComponent,
-    LegendComponent
+    LegendComponent,
+    DataZoomInsideComponent
 ]);
 
 app.use(pinia);
