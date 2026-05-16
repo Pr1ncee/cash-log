@@ -306,6 +306,11 @@ export const SUPPORTED_IMPORT_FILE_CATEGORY_AND_TYPES: ImportFileCategoryAndType
                         type: 'credobank_xlsx',
                         name: 'CredoBank Statement File',
                         extensions: '.xlsx',
+                    },
+                    {
+                        type: 'tbcbank_xlsx',
+                        name: 'TBC Bank Statement File',
+                        extensions: '.xlsx',
                     }
                 ]
             }
