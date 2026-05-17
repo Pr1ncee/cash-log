@@ -69,6 +69,11 @@
                         v-model="currentExplorer.chartSortingType"
                     />
                     <v-spacer class="flex-1-1"/>
+                    <v-chip v-if="!loading && overallChartSummary"
+                            color="default" density="compact" variant="tonal"
+                            class="flex-0-0 text-caption">
+                        {{ overallChartSummary.label }}: {{ overallChartSummary.value }}
+                    </v-chip>
                 </div>
             </v-col>
         </v-row>
@@ -251,6 +256,7 @@ const {
     formatDateTimeToGregorianLikeYearQuarter,
     formatGregorianYearToGregorianLikeFiscalYear,
     formatAmountToLocalizedNumerals,
+    formatAmountToLocalizedNumeralsWithCurrency,
     formatAmountToWesternArabicNumeralsWithoutDigitGrouping
 } = useI18n();
 
@@ -268,6 +274,35 @@ const allTransactionExplorerChartSortingTypes = computed<TypeAndDisplayName[]>((
 const currentTransactionExplorerCategoryDimensionName = computed<string>(() => findNameByValue(allTransactionExplorerDataDimensions.value, currentExplorer.value.categoryDimension) ?? tt('Unknown'));
 
 const currentExplorer = computed<InsightsExplorer>(() => explorersStore.currentInsightsExplorer);
+
+const overallChartSummary = computed<{ label: string; value: string } | null>(() => {
+    const { sum, count, median, max } = explorersStore.transactionExplorerOverallTotals;
+
+    if (currentExplorer.value.valueMetric === TransactionExplorerValueMetric.SourceAmountSum.value) {
+        return {
+            label: tt('Total Amount'),
+            value: formatAmountToLocalizedNumeralsWithCurrency(sum, defaultCurrency.value)
+        };
+    } else if (currentExplorer.value.valueMetric === TransactionExplorerValueMetric.SourceAmountAverage.value) {
+        const avg = count > 0 ? Math.trunc(sum / count) : 0;
+        return {
+            label: tt('Average Amount'),
+            value: formatAmountToLocalizedNumeralsWithCurrency(avg, defaultCurrency.value)
+        };
+    } else if (currentExplorer.value.valueMetric === TransactionExplorerValueMetric.SourceAmountMedian.value) {
+        return {
+            label: tt('Median Amount'),
+            value: formatAmountToLocalizedNumeralsWithCurrency(median, defaultCurrency.value)
+        };
+    } else if (currentExplorer.value.valueMetric === TransactionExplorerValueMetric.SourceAmountMaximum.value) {
+        return {
+            label: tt('Maximum Amount'),
+            value: formatAmountToLocalizedNumeralsWithCurrency(max, defaultCurrency.value)
+        };
+    }
+
+    return null;
+});
 
 const categoryDimensionTransactionExplorerData = computed<CategoryDimensionData[]>(() => {
     if (currentExplorer.value.chartType !== TransactionExplorerChartType.Pie.value && currentExplorer.value.chartType !== TransactionExplorerChartType.Radar.value) {
