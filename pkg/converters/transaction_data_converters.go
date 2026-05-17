@@ -18,6 +18,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/converters/mt"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/ofx"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/qif"
+	"github.com/mayswind/ezbookkeeping/pkg/converters/tbcbank"
 	"github.com/mayswind/ezbookkeeping/pkg/converters/wechat"
 	"github.com/mayswind/ezbookkeeping/pkg/errs"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
@@ -84,6 +85,8 @@ func GetTransactionDataImporter(fileType string) (converter.TransactionDataImpor
 		return basisbank.BasisBankTransactionDataXlsxFileImporter, nil
 	} else if fileType == "credobank_xlsx" {
 		return credobank.CredoBankTransactionDataXlsxFileImporter, nil
+	} else if fileType == "tbcbank_xlsx" {
+		return tbcbank.TBCBankTransactionDataXlsxFileImporter, nil
 	} else {
 		return nil, errs.ErrImportFileTypeNotSupported
 	}

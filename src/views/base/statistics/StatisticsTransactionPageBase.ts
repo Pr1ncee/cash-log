@@ -202,7 +202,8 @@ export function useStatisticsTransactionPageBase() {
     });
 
     const canUseCategoryFilter = computed<boolean>(() => {
-        if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+        if (query.value.chartDataType === ChartDataType.PreciousMetals.type ||
+            query.value.chartDataType === ChartDataType.IncomeByTag.type) {
             return false;
         }
 
@@ -234,6 +235,10 @@ export function useStatisticsTransactionPageBase() {
     });
 
     const canUseTagFilter = computed<boolean>(() => {
+        if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return false;
+        }
+
         return canUseServerCustomFilter.value;
     });
 
@@ -259,7 +264,8 @@ export function useStatisticsTransactionPageBase() {
             return tt('Total Outflows');
         } else if (query.value.chartDataType === ChartDataType.IncomeByAccount.type
             || query.value.chartDataType === ChartDataType.IncomeByPrimaryCategory.type
-            || query.value.chartDataType === ChartDataType.IncomeBySecondaryCategory.type) {
+            || query.value.chartDataType === ChartDataType.IncomeBySecondaryCategory.type
+            || query.value.chartDataType === ChartDataType.IncomeByTag.type) {
             return tt('Total Income');
         } else if (query.value.chartDataType === ChartDataType.ExpenseByAccount.type
             || query.value.chartDataType === ChartDataType.ExpenseByPrimaryCategory.type

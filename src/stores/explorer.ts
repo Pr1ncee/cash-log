@@ -730,6 +730,48 @@ export const useExplorersStore = defineStore('explorers', () => {
         return result;
     });
 
+    const transactionExplorerOverallTotals = computed<{ sum: number; count: number; median: number; max: number }>(() => {
+        const defaultCurrency = userStore.currentUserDefaultCurrency;
+        const seenIds = new Set<string>();
+        const amounts: number[] = [];
+        let sum = 0;
+        let max = Number.MIN_SAFE_INTEGER;
+
+        for (const categoried of values(categoriedTransactions.value)) {
+            for (const series of values(categoried.trasactions)) {
+                for (const tx of series.trasactions) {
+                    if (seenIds.has(tx.id)) {
+                        continue;
+                    }
+                    seenIds.add(tx.id);
+
+                    let amountInDefaultCurrency = tx.sourceAmount;
+
+                    if (tx.sourceAccount.currency !== defaultCurrency) {
+                        const amount = exchangeRatesStore.getExchangedAmount(tx.sourceAmount, tx.sourceAccount.currency, defaultCurrency);
+                        if (isNumber(amount)) {
+                            amountInDefaultCurrency = Math.trunc(amount);
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    amounts.push(amountInDefaultCurrency);
+                    sum += amountInDefaultCurrency;
+
+                    if (amountInDefaultCurrency > max) {
+                        max = amountInDefaultCurrency;
+                    }
+                }
+            }
+        }
+
+        amounts.sort((a, b) => a - b);
+        const median = amounts.length > 0 ? (amounts[Math.floor(amounts.length / 2)] as number) : 0;
+
+        return { sum, count: amounts.length, median, max: max === Number.MIN_SAFE_INTEGER ? 0 : max };
+    });
+
     function updateTransactionExplorerInvalidState(invalidState: boolean): void {
         transactionExplorerStateInvalid.value = invalidState;
     }
@@ -1173,6 +1215,7 @@ export const useExplorersStore = defineStore('explorers', () => {
         // computed
         filteredTransactionsInDataTable,
         categoriedTransactionExplorerData,
+        transactionExplorerOverallTotals,
         // functions
         updateTransactionExplorerInvalidState,
         updateInsightsExplorerListInvalidState,

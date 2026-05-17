@@ -434,6 +434,7 @@ import { useStatisticsTransactionPageBase } from '@/views/base/statistics/Statis
 
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { useStatisticsStore } from '@/stores/statistics.ts';
 
 import type { TypeAndDisplayName } from '@/core/base.ts';
@@ -517,6 +518,7 @@ const {
 
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 const statisticsStore = useStatisticsStore();
 
 const loadingError = ref<unknown | null>(null);
@@ -559,10 +561,16 @@ function getTransactionItemLinkUrl(itemId: string, dateRange?: TimeRangeAndDateT
 function init(): void {
     statisticsStore.initTransactionStatisticsFilter(analysisType.value);
 
-    Promise.all([
+    const initLoaders: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({ force: false }),
         transactionCategoriesStore.loadAllCategories({ force: false })
-    ]).then(() => {
+    ];
+
+    if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        initLoaders.push(transactionTagsStore.loadAllTags({ force: false }));
+    }
+
+    Promise.all(initLoaders).then(() => {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             return statisticsStore.loadCategoricalAnalysis({
                 force: false
@@ -570,6 +578,11 @@ function init(): void {
         } else if (analysisType.value === StatisticsAnalysisType.TrendAnalysis) {
             if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
                 return statisticsStore.loadPreciousMetals({
+                    force: false
+                }) as Promise<unknown>;
+            }
+            if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+                return statisticsStore.loadTagTrendAnalysis({
                     force: false
                 }) as Promise<unknown>;
             }
@@ -605,6 +618,10 @@ function reload(done?: () => void): void {
         dispatchPromise = statisticsStore.loadPreciousMetals({
             force: force
         });
+    } else if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        dispatchPromise = transactionTagsStore.loadAllTags({ force: false }).then(() =>
+            statisticsStore.loadTagTrendAnalysis({ force: force })
+        );
     } else if (query.value.chartDataType === ChartDataType.OutflowsByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByPrimaryCategory.type ||
@@ -708,8 +725,10 @@ function setChartDataType(type: number, chartDataType: number): void {
     if (!needReload) {
         const switchingToPreciousMetals = chartDataType === ChartDataType.PreciousMetals.type && previousChartDataType !== ChartDataType.PreciousMetals.type;
         const switchingFromPreciousMetals = chartDataType !== ChartDataType.PreciousMetals.type && previousChartDataType === ChartDataType.PreciousMetals.type;
+        const switchingToIncomeByTag = chartDataType === ChartDataType.IncomeByTag.type && previousChartDataType !== ChartDataType.IncomeByTag.type;
+        const switchingFromIncomeByTag = chartDataType !== ChartDataType.IncomeByTag.type && previousChartDataType === ChartDataType.IncomeByTag.type;
 
-        if (switchingToPreciousMetals || switchingFromPreciousMetals) {
+        if (switchingToPreciousMetals || switchingFromPreciousMetals || switchingToIncomeByTag || switchingFromIncomeByTag) {
             needReload = true;
         }
     }
@@ -989,7 +1008,7 @@ init();
 }
 
 .chart-data-type-popover-menu .popover-inner {
-    max-height: 440px;
+    max-height: min(600px, 80vh);
     overflow-y: auto;
 }
 </style>
