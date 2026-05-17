@@ -2179,6 +2179,151 @@ func (s *TransactionService) GetAccountsAndCategoriesMonthlyInflowAndOutflow(c c
 	return transactionsMonthlyAmounts, nil
 }
 
+// GetTagsMonthlyIncomeAmount returns monthly income amounts grouped by tag id.
+// Returns map[yearMonth]map[tagId]amount.
+func (s *TransactionService) GetTagsMonthlyIncomeAmount(c core.Context, uid int64, startYear int32, startMonth int32, endYear int32, endMonth int32, keyword string, clientTimezone *time.Location, useTransactionTimezone bool) (map[int32]map[int64]int64, error) {
+	if uid <= 0 {
+		return nil, errs.ErrUserIdInvalid
+	}
+
+	var startTransactionTime, endTransactionTime int64
+	var err error
+
+	if startYear > 0 && startMonth > 0 {
+		startTransactionTime, _, err = utils.GetTransactionTimeRangeByYearMonth(startYear, startMonth)
+		if err != nil {
+			return nil, errs.ErrSystemError
+		}
+	}
+
+	if endYear > 0 && endMonth > 0 {
+		_, endTransactionTime, err = utils.GetTransactionTimeRangeByYearMonth(endYear, endMonth)
+		if err != nil {
+			return nil, errs.ErrSystemError
+		}
+	}
+
+	condition := "uid=? AND deleted=? AND type=?"
+	conditionParams := make([]any, 0, 4)
+	conditionParams = append(conditionParams, uid)
+	conditionParams = append(conditionParams, false)
+	conditionParams = append(conditionParams, models.TRANSACTION_DB_TYPE_INCOME)
+
+	startYearMonth := startYear*100 + startMonth
+	endYearMonth := endYear*100 + endMonth
+
+	type txEntry struct {
+		transactionId int64
+		yearMonth     int32
+		amount        int64
+	}
+
+	var allEntries []txEntry
+	minTransactionTime := startTransactionTime
+	maxTransactionTime := endTransactionTime
+
+	for maxTransactionTime >= 0 {
+		var transactions []*models.Transaction
+
+		finalCondition := condition
+		finalConditionParams := make([]any, 0, 6)
+		finalConditionParams = append(finalConditionParams, conditionParams...)
+
+		if minTransactionTime > 0 {
+			finalCondition = finalCondition + " AND transaction_time>=?"
+			finalConditionParams = append(finalConditionParams, minTransactionTime)
+		}
+
+		if maxTransactionTime > 0 {
+			finalCondition = finalCondition + " AND transaction_time<=?"
+			finalConditionParams = append(finalConditionParams, maxTransactionTime)
+		}
+
+		if keyword != "" {
+			finalCondition = finalCondition + " AND comment LIKE ?"
+			finalConditionParams = append(finalConditionParams, "%%"+keyword+"%%")
+		}
+
+		err := s.UserDataDB(uid).NewSession(c).Select("transaction_id, transaction_time, timezone_utc_offset, amount").Where(finalCondition, finalConditionParams...).Limit(pageCountForLoadTransactionAmounts, 0).OrderBy("transaction_time desc").Find(&transactions)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, transaction := range transactions {
+			timeZone := clientTimezone
+			if useTransactionTimezone {
+				timeZone = time.FixedZone("Transaction Timezone", int(transaction.TimezoneUtcOffset)*60)
+			}
+
+			yearMonth := utils.FormatUnixTimeToNumericYearMonth(utils.GetUnixTimeFromTransactionTime(transaction.TransactionTime), timeZone)
+
+			if (startYearMonth > 0 && yearMonth < startYearMonth) || (endYearMonth > 0 && yearMonth > endYearMonth) {
+				continue
+			}
+
+			allEntries = append(allEntries, txEntry{
+				transactionId: transaction.TransactionId,
+				yearMonth:     yearMonth,
+				amount:        transaction.Amount,
+			})
+		}
+
+		if len(transactions) < pageCountForLoadTransactionAmounts {
+			maxTransactionTime = -1
+			break
+		}
+
+		maxTransactionTime = transactions[len(transactions)-1].TransactionTime - 1
+	}
+
+	if len(allEntries) == 0 {
+		return map[int32]map[int64]int64{}, nil
+	}
+
+	// Build transactionId -> (yearMonth, amount) map
+	txMap := make(map[int64]txEntry, len(allEntries))
+	transactionIds := make([]int64, 0, len(allEntries))
+	for _, e := range allEntries {
+		if _, exists := txMap[e.transactionId]; !exists {
+			txMap[e.transactionId] = e
+			transactionIds = append(transactionIds, e.transactionId)
+		}
+	}
+
+	// Query tag indexes for all collected transaction IDs
+	var tagIndexes []*models.TransactionTagIndex
+	err = s.UserDataDB(uid).NewSession(c).
+		Select("tag_id, transaction_id").
+		Where("uid=? AND deleted=?", uid, false).
+		In("transaction_id", transactionIds).
+		Find(&tagIndexes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Group amounts by (yearMonth, tagId)
+	result := make(map[int32]map[int64]int64)
+
+	for _, tagIndex := range tagIndexes {
+		entry, exists := txMap[tagIndex.TransactionId]
+		if !exists {
+			continue
+		}
+
+		monthMap, exists := result[entry.yearMonth]
+		if !exists {
+			monthMap = make(map[int64]int64)
+			result[entry.yearMonth] = monthMap
+		}
+
+		monthMap[tagIndex.TagId] += entry.amount
+	}
+
+	return result, nil
+}
+
 // GetTransactionMapByList returns a transaction map by a list
 func (s *TransactionService) GetTransactionMapByList(transactions []*models.Transaction) map[int64]*models.Transaction {
 	transactionMap := make(map[int64]*models.Transaction)

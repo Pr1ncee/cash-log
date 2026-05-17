@@ -616,6 +616,62 @@ func (a *TransactionsApi) TransactionStatisticsTrendsHandler(c *core.WebContext)
 	return statisticTrendsResp, nil
 }
 
+// TransactionStatisticsTagTrendsHandler returns monthly income amounts grouped by tag for current user
+func (a *TransactionsApi) TransactionStatisticsTagTrendsHandler(c *core.WebContext) (any, *errs.Error) {
+	var req models.TransactionStatisticTagTrendsRequest
+	err := c.ShouldBindQuery(&req)
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionStatisticsTagTrendsHandler] parse request failed, because %s", err.Error())
+		return nil, errs.NewIncompleteOrIncorrectSubmissionError(err)
+	}
+
+	clientTimezone, err := c.GetClientTimezone()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionStatisticsTagTrendsHandler] cannot get client timezone, because %s", err.Error())
+		return nil, errs.ErrClientTimezoneOffsetInvalid
+	}
+
+	startYear, startMonth, endYear, endMonth, err := req.GetNumericYearMonthRange()
+
+	if err != nil {
+		log.Warnf(c, "[transactions.TransactionStatisticsTagTrendsHandler] cannot parse year month, because %s", err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	uid := c.GetCurrentUid()
+	allMonthlyTagAmounts, err := a.transactions.GetTagsMonthlyIncomeAmount(c, uid, startYear, startMonth, endYear, endMonth, req.Keyword, clientTimezone, req.UseTransactionTimezone)
+
+	if err != nil {
+		log.Errorf(c, "[transactions.TransactionStatisticsTagTrendsHandler] failed to get tag monthly income for user \"uid:%d\", because %s", uid, err.Error())
+		return nil, errs.Or(err, errs.ErrOperationFailed)
+	}
+
+	resp := make(models.TransactionStatisticTagTrendsResponseItemSlice, 0, len(allMonthlyTagAmounts))
+
+	for yearMonth, tagAmounts := range allMonthlyTagAmounts {
+		monthItem := &models.TransactionStatisticTagTrendsResponseItem{
+			Year:  yearMonth / 100,
+			Month: yearMonth % 100,
+			Items: make([]*models.TransactionStatisticTagAmountResponseItem, 0, len(tagAmounts)),
+		}
+
+		for tagId, amount := range tagAmounts {
+			monthItem.Items = append(monthItem.Items, &models.TransactionStatisticTagAmountResponseItem{
+				TagId:  tagId,
+				Amount: amount,
+			})
+		}
+
+		resp = append(resp, monthItem)
+	}
+
+	sort.Sort(resp)
+
+	return resp, nil
+}
+
 // TransactionStatisticsAssetTrendsHandler returns transaction statistics asset trends of current user
 func (a *TransactionsApi) TransactionStatisticsAssetTrendsHandler(c *core.WebContext) (any, *errs.Error) {
 	var statisticAssetTrendsReq models.TransactionStatisticAssetTrendsRequest
