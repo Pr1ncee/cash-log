@@ -202,6 +202,11 @@ export function useStatisticsTransactionPageBase() {
     });
 
     const canUseCategoryFilter = computed<boolean>(() => {
+        if (query.value.chartDataType === ChartDataType.PreciousMetals.type ||
+            query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return false;
+        }
+
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             if (query.value.chartDataType === ChartDataType.AccountTotalAssets.type || query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type) {
                 return false;
@@ -214,6 +219,10 @@ export function useStatisticsTransactionPageBase() {
     });
 
     const canUseServerCustomFilter = computed<boolean>(() => {
+        if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+            return false;
+        }
+
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             if (query.value.chartDataType === ChartDataType.AccountTotalAssets.type || query.value.chartDataType === ChartDataType.AccountTotalLiabilities.type) {
                 return false;
@@ -226,6 +235,10 @@ export function useStatisticsTransactionPageBase() {
     });
 
     const canUseTagFilter = computed<boolean>(() => {
+        if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return false;
+        }
+
         return canUseServerCustomFilter.value;
     });
 
@@ -251,7 +264,8 @@ export function useStatisticsTransactionPageBase() {
             return tt('Total Outflows');
         } else if (query.value.chartDataType === ChartDataType.IncomeByAccount.type
             || query.value.chartDataType === ChartDataType.IncomeByPrimaryCategory.type
-            || query.value.chartDataType === ChartDataType.IncomeBySecondaryCategory.type) {
+            || query.value.chartDataType === ChartDataType.IncomeBySecondaryCategory.type
+            || query.value.chartDataType === ChartDataType.IncomeByTag.type) {
             return tt('Total Income');
         } else if (query.value.chartDataType === ChartDataType.ExpenseByAccount.type
             || query.value.chartDataType === ChartDataType.ExpenseByPrimaryCategory.type
@@ -280,7 +294,8 @@ export function useStatisticsTransactionPageBase() {
             query.value.chartDataType !== ChartDataType.TotalIncome.type &&
             query.value.chartDataType !== ChartDataType.NetCashFlow.type &&
             query.value.chartDataType !== ChartDataType.NetIncome.type &&
-            query.value.chartDataType !== ChartDataType.NetWorth.type;
+            query.value.chartDataType !== ChartDataType.NetWorth.type &&
+            query.value.chartDataType !== ChartDataType.PreciousMetals.type;
     });
 
     const showStackedInTrendsChart = computed<boolean>(() => {
@@ -296,12 +311,14 @@ export function useStatisticsTransactionPageBase() {
             query.value.chartDataType === ChartDataType.TotalIncome.type ||
             query.value.chartDataType === ChartDataType.NetCashFlow.type ||
             query.value.chartDataType === ChartDataType.NetIncome.type ||
-            query.value.chartDataType === ChartDataType.NetWorth.type;
+            query.value.chartDataType === ChartDataType.NetWorth.type ||
+            query.value.chartDataType === ChartDataType.PreciousMetals.type;
     });
 
     const categoricalOverviewAnalysisData = computed<TransactionCategoricalOverviewAnalysisData | null>(() => statisticsStore.categoricalOverviewAnalysisData);
     const categoricalAnalysisData = computed<TransactionCategoricalAnalysisData>(() => statisticsStore.categoricalAnalysisData);
     const trendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => statisticsStore.trendsAnalysisData);
+    const preciousMetalsTrendsData = computed<TransactionTrendsAnalysisData | null>(() => statisticsStore.preciousMetalsTrendsData);
     const assetTrendsData = computed<TransactionAssetTrendsAnalysisData | null>(() => statisticsStore.assetTrendsData);
 
     function canShowCustomDateRange(dateRangeType: number): boolean {
@@ -383,6 +400,7 @@ export function useStatisticsTransactionPageBase() {
         categoricalOverviewAnalysisData,
         categoricalAnalysisData,
         trendsAnalysisData,
+        preciousMetalsTrendsData,
         assetTrendsData,
         // functions
         canShowCustomDateRange,

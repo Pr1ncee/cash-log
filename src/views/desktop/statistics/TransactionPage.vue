@@ -47,15 +47,17 @@
                                 v-model="querySortingType"
                             />
                         </div>
-                        <v-tabs show-arrows class="my-4" direction="vertical"
-                                :disabled="loading" v-model="queryChartDataType">
-                            <v-tab class="tab-text-truncate" :key="dataType.type" :value="dataType.type"
-                                   v-for="dataType in ChartDataType.values(undefined, true)"
-                                   v-show="dataType.isAvailableAnalysisType(queryAnalysisType)">
-                                <span class="text-truncate">{{ tt(dataType.name) }}</span>
-                                <v-tooltip activator="parent" location="right">{{ tt(dataType.name) }}</v-tooltip>
-                            </v-tab>
-                        </v-tabs>
+                        <div class="statistics-data-type-list">
+                            <v-tabs show-arrows class="my-4" direction="vertical"
+                                    :disabled="loading" v-model="queryChartDataType">
+                                <v-tab class="tab-text-truncate" :key="dataType.type" :value="dataType.type"
+                                       v-for="dataType in ChartDataType.values(undefined, true)"
+                                       v-show="dataType.isAvailableAnalysisType(queryAnalysisType)">
+                                    <span class="text-truncate">{{ tt(dataType.name) }}</span>
+                                    <v-tooltip activator="parent" location="right">{{ tt(dataType.name) }}</v-tooltip>
+                                </v-tab>
+                            </v-tabs>
+                        </div>
                     </v-navigation-drawer>
                     <v-main>
                         <v-window class="d-flex flex-grow-1 disable-tab-transition w-100-window-container" v-model="activeTab">
@@ -221,11 +223,26 @@
                                                            v-else-if="initing"></v-skeleton-loader>
                                     </v-card-text>
 
+                                    <v-card-text class="statistics-overview-title pt-0" :class="{ 'disabled': loading }"
+                                                 v-else-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && queryChartDataType === ChartDataType.PreciousMetals.type && !initing && preciousMetalsPriceData && preciousMetalsPriceData.statistics">
+                                        <span class="statistics-subtitle">{{ tt('Current Price') }}</span>
+                                        <span class="statistics-overview-amount ms-3">
+                                            ${{ preciousMetalsPriceData.currentPrice.toFixed(2) }}/g
+                                        </span>
+                                        <span class="statistics-subtitle ms-4">{{ tt('Price Change') }}</span>
+                                        <span class="statistics-overview-amount ms-3"
+                                              :class="preciousMetalsPriceData.statistics.change >= 0 ? 'text-income' : 'text-expense'">
+                                            {{ preciousMetalsPriceData.statistics.change >= 0 ? '+' : '' }}${{ preciousMetalsPriceData.statistics.change.toFixed(2) }}
+                                            ({{ preciousMetalsPriceData.statistics.changePct >= 0 ? '+' : '' }}{{ preciousMetalsPriceData.statistics.changePct.toFixed(2) }}%)
+                                        </span>
+                                    </v-card-text>
+
                                     <v-card-text class="statistics-overview-title pt-0"
                                                  v-else-if="!loading && (
                                                      (queryAnalysisType === StatisticsAnalysisType.CategoricalAnalysis && isQuerySpecialChartType && queryChartDataType === ChartDataType.Overview.type && (!categoricalOverviewAnalysisData || !categoricalOverviewAnalysisData.items || !categoricalOverviewAnalysisData.items.length))
                                                   || (queryAnalysisType === StatisticsAnalysisType.CategoricalAnalysis && !isQuerySpecialChartType && (!categoricalAnalysisData || !categoricalAnalysisData.items || !categoricalAnalysisData.items.length))
-                                                  || (queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && (!trendsAnalysisData || !trendsAnalysisData.items || !trendsAnalysisData.items.length))
+                                                  || (queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && queryChartDataType === ChartDataType.PreciousMetals.type && (!preciousMetalsTrendsData || !preciousMetalsTrendsData.items || !preciousMetalsTrendsData.items.length))
+                                                  || (queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && queryChartDataType !== ChartDataType.PreciousMetals.type && (!trendsAnalysisData || !trendsAnalysisData.items || !trendsAnalysisData.items.length))
                                                   || (queryAnalysisType === StatisticsAnalysisType.AssetTrends && (!assetTrendsData || !assetTrendsData.items || !assetTrendsData.items.length))
                                                   )">
                                         <span class="statistics-subtitle statistics-overview-empty-tip">{{ tt('No transaction data') }}</span>
@@ -362,7 +379,7 @@
                                         />
                                     </v-card-text>
 
-                                    <v-card-text :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis">
+                                    <v-card-text :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && queryChartDataType !== ChartDataType.PreciousMetals.type">
                                         <trends-chart
                                             chart-mode="monthly"
                                             :type="queryChartType"
@@ -408,6 +425,16 @@
                                             display-orders-field="displayOrders"
                                             v-else-if="!initing && trendsAnalysisData && trendsAnalysisData.items && trendsAnalysisData.items.length"
                                             @click="onClickTrendChartItem"
+                                        />
+                                    </v-card-text>
+
+                                    <v-card-text :class="{ 'readonly': loading }" v-if="queryAnalysisType === StatisticsAnalysisType.TrendAnalysis && queryChartDataType === ChartDataType.PreciousMetals.type">
+                                        <precious-metals-chart
+                                            :historical-data="preciousMetalsPriceData && preciousMetalsPriceData.historicalData ? preciousMetalsPriceData.historicalData : []"
+                                            :currency="preciousMetalsPriceData ? preciousMetalsPriceData.currency : 'USD'"
+                                            :current-price="preciousMetalsPriceData ? preciousMetalsPriceData.currentPrice : 0"
+                                            :purchase-markers="preciousMetalsPurchaseMarkers"
+                                            v-if="!initing && preciousMetalsPriceData && preciousMetalsPriceData.historicalData && preciousMetalsPriceData.historicalData.length"
                                         />
                                     </v-card-text>
 
@@ -505,6 +532,8 @@
 <script setup lang="ts">
 import SnackBar from '@/components/desktop/SnackBar.vue';
 import TrendsChart from '@/components/desktop/TrendsChart.vue';
+import PreciousMetalsChart from '@/components/desktop/PreciousMetalsChart.vue';
+import type { PurchaseMarker } from '@/models/precious_metals.ts';
 import AccountFilterSettingsCard from '@/views/desktop/common/cards/AccountFilterSettingsCard.vue';
 import CategoryFilterSettingsCard from '@/views/desktop/common/cards/CategoryFilterSettingsCard.vue';
 import TransactionTagFilterSettingsCard from '@/views/desktop/common/cards/TransactionTagFilterSettingsCard.vue';
@@ -519,7 +548,11 @@ import { useStatisticsTransactionPageBase } from '@/views/base/statistics/Statis
 
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { type TransactionStatisticsPartialFilter, useStatisticsStore } from '@/stores/statistics.ts';
+
+import services from '@/lib/services.ts';
+import logger from '@/lib/logger.ts';
 
 import type { TypeAndDisplayName } from '@/core/base.ts';
 import { type TextualYearMonth, type TimeRangeAndDateType, DateRangeScene, DateRange } from '@/core/datetime.ts';
@@ -631,6 +664,7 @@ const {
     categoricalOverviewAnalysisData,
     categoricalAnalysisData,
     trendsAnalysisData,
+    preciousMetalsTrendsData,
     assetTrendsData,
     canShowCustomDateRange,
     getTransactionCategoricalAnalysisDataItemDisplayColor,
@@ -639,7 +673,75 @@ const {
 
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 const statisticsStore = useStatisticsStore();
+
+const preciousMetalsPriceData = computed(() => statisticsStore.preciousMetalsPriceData);
+const preciousMetalsPurchaseMarkersData = ref<PurchaseMarker[]>([]);
+const preciousMetalsPurchaseMarkers = computed(() => preciousMetalsPurchaseMarkersData.value);
+
+function loadPurchaseMarkers(): void {
+    // Find the top-level "Precious Metals" category ID only.
+    // The backend expands parent IDs to include subcategories automatically.
+    const allCategories = transactionCategoriesStore.allTransactionCategories;
+    const preciousMetalsCategoryIds: string[] = [];
+
+    for (const categories of Object.values(allCategories)) {
+        for (const cat of categories) {
+            if (cat.name.toLowerCase().includes('precious')) {
+                preciousMetalsCategoryIds.push(cat.id);
+            }
+        }
+    }
+
+    if (!preciousMetalsCategoryIds.length) {
+        logger.warn('no precious metals categories found');
+        preciousMetalsPurchaseMarkersData.value = [];
+        return;
+    }
+
+    services.getTransactions({
+        maxTime: 0,
+        minTime: 0,
+        type: 2, // Income only
+        categoryIds: preciousMetalsCategoryIds.join(','),
+        accountIds: '',
+        tagFilter: '',
+        amountFilter: '',
+        keyword: '',
+        count: 50,
+        page: 1,
+        withCount: false
+    }).then(response => {
+        const data = response.data;
+
+        if (!data || !data.success || !data.result || !data.result.items) {
+            preciousMetalsPurchaseMarkersData.value = [];
+            return;
+        }
+
+        const markers: PurchaseMarker[] = [];
+        const seenIds = new Set<string>();
+
+        for (const txn of data.result.items) {
+            if (seenIds.has(txn.id)) {
+                continue;
+            }
+            seenIds.add(txn.id);
+
+            markers.push({
+                timestamp: txn.time,
+                amount: txn.sourceAmount / 100,
+                description: txn.comment || 'Purchase'
+            });
+        }
+
+        preciousMetalsPurchaseMarkersData.value = markers;
+    }).catch(error => {
+        logger.error('failed to load purchase markers', error);
+        preciousMetalsPurchaseMarkersData.value = [];
+    });
+}
 
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
 const monthlyTrendsChart = useTemplateRef<TrendsChartType>('monthlyTrendsChart');
@@ -663,6 +765,9 @@ const statisticsDataHasData = computed<boolean>(() => {
     if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
         return !!categoricalAnalysisData.value && !!categoricalAnalysisData.value.items && categoricalAnalysisData.value.items.length > 0;
     } else if (analysisType.value === StatisticsAnalysisType.TrendAnalysis) {
+        if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+            return !!preciousMetalsPriceData.value && !!preciousMetalsPriceData.value.historicalData && preciousMetalsPriceData.value.historicalData.length > 0;
+        }
         return !!trendsAnalysisData.value && !!trendsAnalysisData.value.items && trendsAnalysisData.value.items.length > 0 && !!monthlyTrendsChart.value;
     } else if (analysisType.value === StatisticsAnalysisType.AssetTrends) {
         return !!assetTrendsData.value && !!assetTrendsData.value.items && assetTrendsData.value.items.length > 0 && !!dailyTrendsChart.value;
@@ -830,6 +935,11 @@ function init(initProps: TransactionStatisticsProps): void {
         }
     }
 
+    // Check if chartDataType changed (e.g., switching to Precious Metals tab)
+    if (filter.chartDataType !== undefined && filter.chartDataType !== query.value.chartDataType) {
+        needReload = true;
+    }
+
     if (!isDefined(initProps.initAnalysisType)) {
         analysisType.value = StatisticsAnalysisType.CategoricalAnalysis;
         statisticsStore.initTransactionStatisticsFilter(analysisType.value);
@@ -843,15 +953,32 @@ function init(initProps: TransactionStatisticsProps): void {
         return;
     }
 
-    Promise.all([
+    const initLoaders: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({force: false}),
         transactionCategoriesStore.loadAllCategories({force: false})
-    ]).then(() => {
+    ];
+
+    if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        initLoaders.push(transactionTagsStore.loadAllTags({force: false}));
+    }
+
+    Promise.all(initLoaders).then(() => {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             return statisticsStore.loadCategoricalAnalysis({
                 force: false
             }) as Promise<unknown>;
         } else if (analysisType.value === StatisticsAnalysisType.TrendAnalysis) {
+            if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+                loadPurchaseMarkers();
+                return statisticsStore.loadPreciousMetals({
+                    force: false
+                }) as Promise<unknown>;
+            }
+            if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+                return statisticsStore.loadTagTrendAnalysis({
+                    force: false
+                }) as Promise<unknown>;
+            }
             return statisticsStore.loadTrendAnalysis({
                 force: false
             }) as Promise<unknown>;
@@ -880,7 +1007,16 @@ function reload(force: boolean): Promise<unknown> | null {
 
     loading.value = true;
 
-    if (query.value.chartDataType === ChartDataType.Overview.type ||
+    if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
+        loadPurchaseMarkers();
+        dispatchPromise = statisticsStore.loadPreciousMetals({
+            force: force
+        });
+    } else if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        dispatchPromise = transactionTagsStore.loadAllTags({ force: false }).then(() =>
+            statisticsStore.loadTagTrendAnalysis({ force: force })
+        );
+    } else if (query.value.chartDataType === ChartDataType.Overview.type ||
         query.value.chartDataType === ChartDataType.OutflowsByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByPrimaryCategory.type ||
@@ -1335,6 +1471,11 @@ init(props);
 </script>
 
 <style>
+.statistics-data-type-list {
+    overflow-y: auto;
+    max-height: calc(100vh - 380px);
+}
+
 .statistics-custom-datetime-range {
     line-height: 1rem;
 }

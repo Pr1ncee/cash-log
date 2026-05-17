@@ -5,6 +5,7 @@ import { useSettingsStore } from './setting.ts';
 import { useUserStore } from './user.ts';
 import { useAccountsStore } from './account.ts';
 import { useTransactionCategoriesStore } from './transactionCategory.ts';
+import { useTransactionTagsStore } from './transactionTag.ts';
 import { useExchangeRatesStore } from './exchangeRates.ts';
 
 import { entries, values } from '@/core/base.ts';
@@ -26,12 +27,13 @@ import {
     DEFAULT_ASSET_TRENDS_CHART_DATA_RANGE
 } from '@/core/statistics.ts';
 import { DEFAULT_ACCOUNT_ICON, DEFAULT_CATEGORY_ICON } from '@/consts/icon.ts';
-import { DEFAULT_ACCOUNT_COLOR, DEFAULT_CATEGORY_COLOR } from '@/consts/color.ts';
+import { DEFAULT_ACCOUNT_COLOR, DEFAULT_CATEGORY_COLOR, DEFAULT_CHART_COLORS } from '@/consts/color.ts';
 
 import {
     type TransactionStatisticResponse,
     type TransactionStatisticResponseItem,
     type TransactionStatisticTrendsResponseItem,
+    type TransactionStatisticTagTrendsResponseItem,
     type TransactionStatisticAssetTrendsResponseItem,
     type TransactionStatisticAssetTrendsResponseDataItem,
     type TransactionStatisticResponseItemWithInfo,
@@ -52,6 +54,8 @@ import {
     type TransactionAssetTrendsAnalysisDataAmount,
     TransactionCategoricalOverviewAnalysisDataItemType
 } from '@/models/transaction.ts';
+
+import type { PreciousMetalPriceResponse } from '@/models/precious_metals.ts';
 
 import {
     isEquals,
@@ -165,6 +169,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     const userStore = useUserStore();
     const accountsStore = useAccountsStore();
     const transactionCategoriesStore = useTransactionCategoriesStore();
+    const transactionTagsStore = useTransactionTagsStore();
     const exchangeRatesStore = useExchangeRatesStore();
 
     const transactionStatisticsFilter = ref<TransactionStatisticsFilter>({
@@ -190,7 +195,9 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
     const transactionCategoryStatisticsData = ref<TransactionStatisticResponse | null>(null);
     const transactionCategoryTrendsData = ref<TransactionStatisticTrendsResponseItem[]>([]);
+    const transactionTagTrendsData = ref<TransactionStatisticTagTrendsResponseItem[]>([]);
     const transactionAssetTrendsData = ref<TransactionStatisticAssetTrendsResponseItem[]>([]);
+    const preciousMetalsPriceData = ref<PreciousMetalPriceResponse | null>(null);
     const transactionStatisticsStateInvalid = ref<boolean>(true);
 
     const categoricalAnalysisChartDataCategory = computed<string>(() => {
@@ -693,7 +700,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         return finalTrendsData;
     });
 
-    const trendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+    const categoryTrendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
         if (!transactionCategoryTrendsDataWithCategoryAndAccountInfo.value || !transactionCategoryTrendsDataWithCategoryAndAccountInfo.value.length) {
             return null;
         }
@@ -739,11 +746,105 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
         sortCategoryTotalAmountItems(totalAmountsTrends, transactionStatisticsFilter.value);
 
-        const trendsData: TransactionTrendsAnalysisData = {
-            items: totalAmountsTrends
+        return { items: totalAmountsTrends };
+    });
+
+    const tagTrendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+        if (!transactionTagTrendsData.value || !transactionTagTrendsData.value.length) {
+            return null;
+        }
+
+        const combinedDataMap: Record<string, WritableTransactionTrendsAnalysisDataItem> = {};
+
+        for (const trendItem of transactionTagTrendsData.value) {
+            for (const tagAmountItem of trendItem.items) {
+                const tagId = tagAmountItem.tagId;
+                const tag = transactionTagsStore.allTransactionTagsMap[tagId];
+
+                let combinedData = combinedDataMap[tagId];
+
+                if (!combinedData) {
+                    const displayOrder = tag ? tag.displayOrder : 0;
+                    const colorIndex = displayOrder % DEFAULT_CHART_COLORS.length;
+
+                    combinedData = {
+                        name: tag ? tag.name : tagId,
+                        type: 'tag' as TransactionStatisticDataItemType,
+                        id: tagId,
+                        icon: 'las la-tag',
+                        color: DEFAULT_CHART_COLORS[colorIndex] as string,
+                        hidden: tag ? tag.hidden : false,
+                        displayOrders: [tag ? tag.displayOrder : 0],
+                        totalAmount: 0,
+                        items: []
+                    };
+                }
+
+                combinedData.items.push({
+                    year: trendItem.year,
+                    month1base: trendItem.month,
+                    totalAmount: tagAmountItem.amount
+                });
+
+                combinedData.totalAmount += tagAmountItem.amount;
+                combinedDataMap[tagId] = combinedData;
+            }
+        }
+
+        const tagTrends: TransactionTrendsAnalysisDataItem[] = [];
+
+        for (const trendData of values(combinedDataMap)) {
+            tagTrends.push(trendData);
+        }
+
+        tagTrends.sort((a, b) => b.totalAmount - a.totalAmount);
+
+        return { items: tagTrends };
+    });
+
+    const trendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+        if (transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return tagTrendsAnalysisData.value;
+        }
+
+        return categoryTrendsAnalysisData.value;
+    });
+
+    const preciousMetalsTrendsData = computed<TransactionTrendsAnalysisData | null>(() => {
+        const priceData = preciousMetalsPriceData.value;
+
+        if (!priceData || !priceData.historicalData || !priceData.historicalData.length) {
+            return null;
+        }
+
+        const metalName = priceData.metal.charAt(0).toUpperCase() + priceData.metal.slice(1);
+        const items: TransactionTrendsAnalysisDataAmount[] = [];
+
+        for (const dataPoint of priceData.historicalData) {
+            const date = new Date(dataPoint.timestamp * 1000);
+
+            items.push({
+                year: date.getFullYear(),
+                month1base: date.getMonth() + 1,
+                totalAmount: Math.round(dataPoint.price * 100)
+            });
+        }
+
+        const trendItem: TransactionTrendsAnalysisDataItem = {
+            name: metalName,
+            type: 'account',
+            id: `metal_${priceData.metal}`,
+            icon: '910',
+            color: priceData.metal === 'gold' ? 'ffd700' : 'c0c0c0',
+            hidden: false,
+            displayOrders: [0],
+            totalAmount: Math.round(priceData.currentPrice * 100),
+            items: items
         };
 
-        return trendsData;
+        return {
+            items: [trendItem]
+        };
     });
 
     const assetTrendsDataWithAccountInfo = computed<TransactionStatisticAssetTrendsResponseItemWithInfo[]>(() => {
@@ -958,6 +1059,40 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
         for (const assetTrendsDataItem of values(combinedDataMap)) {
             allAssetTrendsDataItems.push(assetTrendsDataItem);
+        }
+
+        // Include precious metals market value in Net Worth and Account Total Assets
+        if (preciousMetalsPriceData.value && preciousMetalsPriceData.value.historicalData && preciousMetalsPriceData.value.historicalData.length > 0 &&
+            (transactionStatisticsFilter.value.chartDataType === ChartDataType.NetWorth.type ||
+             transactionStatisticsFilter.value.chartDataType === ChartDataType.AccountTotalAssets.type)) {
+
+            const priceData = preciousMetalsPriceData.value;
+            const metalName = priceData.metal.charAt(0).toUpperCase() + priceData.metal.slice(1) + ' (Market)';
+            const metalItems: TransactionAssetTrendsAnalysisDataAmount[] = [];
+
+            for (const dataPoint of priceData.historicalData) {
+                const date = new Date(dataPoint.timestamp * 1000);
+                metalItems.push({
+                    year: date.getFullYear(),
+                    month: date.getMonth() + 1,
+                    day: date.getDate(),
+                    totalAmount: Math.round(dataPoint.price * 100)
+                });
+            }
+
+            const metalTrendItem: WritableTransactionAssetTrendsAnalysisDataItem = {
+                name: metalName,
+                type: 'account',
+                id: `precious_metal_${priceData.metal}`,
+                icon: '910',
+                color: priceData.metal === 'gold' ? 'ffd700' : 'c0c0c0',
+                hidden: false,
+                displayOrders: [Number.MAX_SAFE_INTEGER],
+                totalAmount: Math.round(priceData.currentPrice * 100),
+                items: metalItems
+            };
+
+            allAssetTrendsDataItems.push(metalTrendItem);
         }
 
         sortCategoryTotalAmountItems(allAssetTrendsDataItems, transactionStatisticsFilter.value);
@@ -1334,6 +1469,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         transactionStatisticsFilter.value.keyword = '';
         transactionCategoryStatisticsData.value = null;
         transactionCategoryTrendsData.value = [];
+        transactionTagTrendsData.value = [];
         transactionStatisticsStateInvalid.value = true;
     }
 
@@ -1897,7 +2033,62 @@ export const useStatisticsStore = defineStore('statistics', () => {
         });
     }
 
+    function loadTagTrendAnalysis({ force }: { force: boolean }): Promise<TransactionStatisticTagTrendsResponseItem[]> {
+        return new Promise((resolve, reject) => {
+            services.getTransactionStatisticsTagTrends({
+                startYearMonth: transactionStatisticsFilter.value.trendChartStartYearMonth,
+                endYearMonth: transactionStatisticsFilter.value.trendChartEndYearMonth,
+                keyword: transactionStatisticsFilter.value.keyword,
+                useTransactionTimezone: settingsStore.appSettings.statistics.defaultTimezoneType === TimezoneTypeForStatistics.TransactionTimezone.type
+            }).then(response => {
+                const data = response.data;
+
+                if (!data || !data.success || !data.result) {
+                    reject({ message: 'Unable to retrieve tag income statistics' });
+                    return;
+                }
+
+                if (transactionStatisticsStateInvalid.value) {
+                    updateTransactionStatisticsInvalidState(false);
+                }
+
+                if (force && data.result && isEquals(transactionTagTrendsData.value, data.result)) {
+                    reject({ message: 'Data is up to date', isUpToDate: true });
+                    return;
+                }
+
+                transactionTagTrendsData.value = data.result;
+
+                resolve(data.result);
+            }).catch(error => {
+                logger.error('failed to retrieve tag income statistics', error);
+
+                if (error.response && error.response.data && error.response.data.errorMessage) {
+                    reject({ error: error.response.data });
+                } else if (!error.processed) {
+                    reject({ message: 'Unable to retrieve tag income statistics' });
+                } else {
+                    reject(error);
+                }
+            });
+        });
+    }
+
     function loadAssetTrends({ force }: { force: boolean }): Promise<TransactionStatisticAssetTrendsResponseItem[]> {
+        // Also fetch precious metals data in the background for asset trends integration
+        services.getPreciousMetalPrices({
+            metal: 'gold',
+            currency: 'USD',
+            unit: 'grams',
+            timeline: 'month'
+        }).then(response => {
+            if (response.data && response.data.success && response.data.result) {
+                preciousMetalsPriceData.value = response.data.result;
+            }
+        }).catch(error => {
+            logger.warn('failed to retrieve precious metals data for asset trends', error);
+        });
+
         return new Promise((resolve, reject) => {
             services.getTransactionStatisticsAssetTrends({
                 startTime: transactionStatisticsFilter.value.assetTrendsChartStartTime,
@@ -1936,17 +2127,92 @@ export const useStatisticsStore = defineStore('statistics', () => {
         });
     }
 
+    function getTimelineFromDateRange(dateType: number): string {
+        switch (dateType) {
+            case DateRange.ThisMonth.type:
+                return 'thismonth';
+            case DateRange.LastMonth.type:
+                return 'lastmonth';
+            case DateRange.ThisYear.type:
+            case DateRange.ThisFiscalYear.type:
+                return 'thisyear';
+            case DateRange.LastYear.type:
+            case DateRange.LastFiscalYear.type:
+                return 'lastyear';
+            case DateRange.RecentTwelveMonths.type:
+                return 'year';
+            case DateRange.RecentTwentyFourMonths.type:
+            case DateRange.RecentTwoYears.type:
+                return '3year';
+            case DateRange.RecentThirtySixMonths.type:
+            case DateRange.RecentThreeYears.type:
+                return '3year';
+            case DateRange.RecentFiveYears.type:
+                return '5year';
+            case DateRange.All.type:
+                return 'alltime';
+            default:
+                return 'year';
+        }
+    }
+
+    function loadPreciousMetals({ force }: { force: boolean }): Promise<PreciousMetalPriceResponse> {
+        const timeline = getTimelineFromDateRange(transactionStatisticsFilter.value.trendChartDateType);
+
+        return new Promise((resolve, reject) => {
+            services.getPreciousMetalPrices({
+                metal: 'gold',
+                currency: 'USD',
+                unit: 'grams',
+                timeline: timeline
+            }).then(response => {
+                const data = response.data;
+
+                if (!data || !data.success || !data.result) {
+                    reject({ message: 'Unable to retrieve precious metals data' });
+                    return;
+                }
+
+                if (transactionStatisticsStateInvalid.value) {
+                    updateTransactionStatisticsInvalidState(false);
+                }
+
+                if (force && data.result && isEquals(preciousMetalsPriceData.value, data.result)) {
+                    reject({ message: 'Data is up to date', isUpToDate: true });
+                    return;
+                }
+
+                preciousMetalsPriceData.value = data.result;
+
+                resolve(data.result);
+            }).catch(error => {
+                logger.error('failed to retrieve precious metals data', error);
+
+                if (error.response && error.response.data && error.response.data.errorMessage) {
+                    reject({ error: error.response.data });
+                } else if (!error.processed) {
+                    reject({ message: 'Unable to retrieve precious metals data' });
+                } else {
+                    reject(error);
+                }
+            });
+        });
+    }
+
     return {
         // states
         transactionStatisticsFilter,
         transactionCategoryStatisticsData,
         transactionCategoryTrendsData,
+        transactionTagTrendsData,
+        preciousMetalsPriceData,
         transactionStatisticsStateInvalid,
         // computed states
         categoricalAnalysisChartDataCategory,
         categoricalOverviewAnalysisData,
         categoricalAnalysisData,
         trendsAnalysisData,
+        preciousMetalsTrendsData,
         assetTrendsData,
         // functions
         updateTransactionStatisticsInvalidState,
@@ -1957,6 +2223,8 @@ export const useStatisticsStore = defineStore('statistics', () => {
         getTransactionListPageParams,
         loadCategoricalAnalysis,
         loadTrendAnalysis,
-        loadAssetTrends
+        loadTagTrendAnalysis,
+        loadAssetTrends,
+        loadPreciousMetals
     };
 });

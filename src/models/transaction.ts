@@ -658,6 +658,11 @@ export interface TransactionStatisticAssetTrendsRequest {
     readonly endTime: number;
 }
 
+export interface TransactionStatisticTagTrendsRequest extends YearMonthRangeRequest {
+    readonly keyword: string;
+    readonly useTransactionTimezone: boolean;
+}
+
 export const ALL_TRANSACTION_AMOUNTS_REQUEST_TYPE = [
     'today',
     'thisWeek',
@@ -816,6 +821,17 @@ export interface TransactionStatisticAssetTrendsResponseDataItem {
     readonly accountClosingBalance: number;
 }
 
+export interface TransactionStatisticTagAmountResponseItem {
+    readonly tagId: string;
+    readonly amount: number;
+}
+
+export interface TransactionStatisticTagTrendsResponseItem {
+    readonly year: number;
+    readonly month: number; // 1-based
+    readonly items: TransactionStatisticTagAmountResponseItem[];
+}
+
 export interface YearMonthDataItem extends Year1BasedMonth, Record<string, unknown> {}
 
 export interface YearMonthDayDataItem extends YearMonthDay, Record<string, unknown> {}
@@ -868,7 +884,7 @@ export interface TransactionStatisticAssetTrendsResponseItemWithInfo {
     readonly items: TransactionStatisticResponseItemWithInfo[];
 }
 
-export type TransactionStatisticDataItemType = 'category' | 'account' | 'total';
+export type TransactionStatisticDataItemType = 'category' | 'account' | 'total' | 'tag';
 
 export interface TransactionStatisticDataItemBase extends SortableTransactionStatisticDataItem {
     readonly name: string;

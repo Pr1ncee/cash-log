@@ -51,6 +51,7 @@ COPY --from=fe-builder --chown=1000:1000 /go/src/github.com/mayswind/ezbookkeepi
 COPY --chown=1000:1000 conf /ezbookkeeping/conf
 COPY --chown=1000:1000 templates /ezbookkeeping/templates
 COPY --chown=1000:1000 LICENSE /ezbookkeeping/LICENSE
+COPY --chown=1000:1000 gold_alltime_historical.csv /ezbookkeeping/gold_alltime_historical.csv
 USER 1000:1000
 EXPOSE 8080
 ENTRYPOINT ["/docker-entrypoint.sh"]

@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package preciousmetals;
+
+option go_package = "github.com/mayswind/ezbookkeeping/pkg/preciousmetals/proto";
+
+service PreciousMetalsService {
+    rpc FetchPrices(FetchPricesRequest) returns (FetchPricesResponse);
+    rpc GetLatestPrice(GetLatestPriceRequest) returns (GetLatestPriceResponse);
+}
+
+message FetchPricesRequest {
+    string metal = 1;       // "gold", "silver", "platinum", "palladium"
+    string currency = 2;    // "USD", "EUR", "GBP"
+    string unit = 3;        // "grams", "ounces", "kilograms"
+    string timeline = 4;    // "month", "year", "5year", etc.
+}
+
+message PriceDataPoint {
+    int64 timestamp = 1;    // unix timestamp in milliseconds
+    double price = 2;
+    string date = 3;        // ISO date string
+}
+
+message PriceStatistics {
+    double high = 1;
+    double low = 2;
+    double open = 3;
+    double close = 4;
+    double average = 5;
+    double change = 6;
+    double change_pct = 7;
+}
+
+message FetchPricesResponse {
+    string metal = 1;
+    string currency = 2;
+    string unit = 3;
+    string timeline = 4;
+    double current_price = 5;
+    repeated PriceDataPoint historical_data = 6;
+    PriceStatistics statistics = 7;
+    string data_source = 8;
+    bool from_cache = 9;
+}
+
+message GetLatestPriceRequest {
+    string metal = 1;
+    string currency = 2;
+    string unit = 3;
+}
+
+message GetLatestPriceResponse {
+    string metal = 1;
+    string currency = 2;
+    string unit = 3;
+    double price = 4;
+    int64 timestamp = 5;
+    string data_source = 6;
+}

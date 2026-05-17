@@ -221,6 +221,16 @@ func CreateNewExcelOOXMLFileBasicDataTable(data []byte, hasTitleLine bool) (data
 			}
 		}
 
+		if hasTitleLine && len(firstRowItems) > 0 {
+			for rowIdx := 1; rowIdx < len(allData); rowIdx++ {
+				if len(allData[rowIdx]) < len(firstRowItems) {
+					padded := make([]string, len(firstRowItems))
+					copy(padded, allData[rowIdx])
+					allData[rowIdx] = padded
+				}
+			}
+		}
+
 		sheets = append(sheets, &excelOOXMLSheet{
 			sheetName: sheetName,
 			allData:   allData,

@@ -173,5 +173,29 @@ func updateAllDatabaseTablesStructure(c *core.CliContext) error {
 
 	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] insights explorer table maintained successfully")
 
+	err = datastore.Container.UserDataStore.SyncStructs(new(models.PreciousMetalPrice))
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] precious metal price table maintained successfully")
+
+	err = datastore.Container.UserDataStore.SyncStructs(new(models.PreciousMetalScrapeLog))
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] precious metal scrape log table maintained successfully")
+
+	err = datastore.Container.UserDataStore.SyncStructs(new(models.PreciousMetalAPIFetchLog))
+
+	if err != nil {
+		return err
+	}
+
+	log.BootInfof(c, "[database.updateAllDatabaseTablesStructure] precious metal api fetch log table maintained successfully")
+
 	return nil
 }

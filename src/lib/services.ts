@@ -62,6 +62,12 @@ import type {
     ImportTransactionResponsePageWrapper
 } from '@/models/imported_transaction.ts';
 import type {
+    PreciousMetalPriceRequest,
+    PreciousMetalPriceResponse,
+    PreciousMetalRefreshRequest,
+    PreciousMetalPortfolioResponse
+} from '@/models/precious_metals.ts';
+import type {
     TransactionCreateRequest,
     TransactionModifyRequest,
     TransactionMoveBetweenAccountsRequest,
@@ -81,6 +87,8 @@ import type {
     TransactionStatisticTrendsResponseItem,
     TransactionStatisticAssetTrendsRequest,
     TransactionStatisticAssetTrendsResponseItem,
+    TransactionStatisticTagTrendsRequest,
+    TransactionStatisticTagTrendsResponseItem,
     TransactionAmountsRequestParams,
     TransactionAmountsResponse
 } from '@/models/transaction.ts';
@@ -571,6 +579,23 @@ export default {
 
         return axios.get<ApiResponse<TransactionStatisticTrendsResponseItem[]>>(`v1/transactions/statistics/trends.json?use_transaction_timezone=${req.useTransactionTimezone}` + (queryParams.length ? '&' + queryParams.join('&') : ''));
     },
+    getTransactionStatisticsTagTrends: (req: TransactionStatisticTagTrendsRequest): ApiResponsePromise<TransactionStatisticTagTrendsResponseItem[]> => {
+        const queryParams: string[] = [];
+
+        if (req.startYearMonth) {
+            queryParams.push(`start_year_month=${req.startYearMonth}`);
+        }
+
+        if (req.endYearMonth) {
+            queryParams.push(`end_year_month=${req.endYearMonth}`);
+        }
+
+        if (req.keyword) {
+            queryParams.push(`keyword=${encodeURIComponent(req.keyword)}`);
+        }
+
+        return axios.get<ApiResponse<TransactionStatisticTagTrendsResponseItem[]>>(`v1/transactions/statistics/tag_trends.json?use_transaction_timezone=${req.useTransactionTimezone}` + (queryParams.length ? '&' + queryParams.join('&') : ''));
+    },
     getTransactionStatisticsAssetTrends: (req: TransactionStatisticAssetTrendsRequest): ApiResponsePromise<TransactionStatisticAssetTrendsResponseItem[]> => {
         const queryParams: string[] = [];
 
@@ -583,6 +608,15 @@ export default {
         }
 
         return axios.get<ApiResponse<TransactionStatisticAssetTrendsResponseItem[]>>('v1/transactions/statistics/asset_trends.json' + (queryParams.length ? '?' + queryParams.join('&') : ''));
+    },
+    getPreciousMetalPrices: (req: PreciousMetalPriceRequest): ApiResponsePromise<PreciousMetalPriceResponse> => {
+        return axios.get<ApiResponse<PreciousMetalPriceResponse>>(`v1/precious_metals/prices.json?metal=${encodeURIComponent(req.metal)}&currency=${encodeURIComponent(req.currency)}&unit=${encodeURIComponent(req.unit)}&timeline=${encodeURIComponent(req.timeline)}`);
+    },
+    getPreciousMetalPortfolio: (): ApiResponsePromise<PreciousMetalPortfolioResponse> => {
+        return axios.get<ApiResponse<PreciousMetalPortfolioResponse>>('v1/precious_metals/portfolio.json');
+    },
+    refreshPreciousMetalData: (req: PreciousMetalRefreshRequest): ApiResponsePromise<PreciousMetalPriceResponse> => {
+        return axios.post<ApiResponse<PreciousMetalPriceResponse>>('v1/precious_metals/refresh.json', req);
     },
     getTransactionAmounts: (params: TransactionAmountsRequestParams, excludeAccountIds: string[], excludeCategoryIds: string[]): ApiResponsePromise<TransactionAmountsResponse> => {
         const req = TransactionAmountsRequest.of(params);

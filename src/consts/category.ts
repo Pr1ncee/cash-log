@@ -277,6 +277,23 @@ export const DEFAULT_EXPENSE_CATEGORIES: PresetCategory[] = [
         ]
     },
     {
+        name: 'Precious Metals',
+        categoryIconId: '910',
+        color: 'ffd700',
+        subCategories: [
+            {
+                name: 'Gold',
+                categoryIconId: '170',
+                color: 'ffd700'
+            },
+            {
+                name: 'Silver',
+                categoryIconId: '910',
+                color: 'c0c0c0'
+            }
+        ]
+    },
+    {
         name: 'Miscellaneous',
         categoryIconId: '1000',
         color: '8e8e93',
@@ -337,6 +354,23 @@ export const DEFAULT_INCOME_CATEGORIES: PresetCategory[] = [
                 name: 'Interest Income',
                 categoryIconId: '970',
                 color: 'ff9500'
+            }
+        ]
+    },
+    {
+        name: 'Precious Metals',
+        categoryIconId: '910',
+        color: 'ffd700',
+        subCategories: [
+            {
+                name: 'Gold',
+                categoryIconId: '170',
+                color: 'ffd700'
+            },
+            {
+                name: 'Silver',
+                categoryIconId: '910',
+                color: 'c0c0c0'
             }
         ]
     },

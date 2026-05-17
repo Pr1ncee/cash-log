@@ -444,6 +444,26 @@ type TransactionStatisticAssetTrendsResponseDataItem struct {
 	AccountClosingBalance int64 `json:"accountClosingBalance"`
 }
 
+// TransactionStatisticTagAmountResponseItem represents total income amount for a tag in a given period
+type TransactionStatisticTagAmountResponseItem struct {
+	TagId  int64 `json:"tagId,string"`
+	Amount int64 `json:"amount"`
+}
+
+// TransactionStatisticTagTrendsResponseItem represents monthly tag income trends data
+type TransactionStatisticTagTrendsResponseItem struct {
+	Year  int32                                        `json:"year"`
+	Month int32                                        `json:"month"`
+	Items []*TransactionStatisticTagAmountResponseItem `json:"items"`
+}
+
+// TransactionStatisticTagTrendsRequest represents all parameters of a tag income trends request
+type TransactionStatisticTagTrendsRequest struct {
+	YearMonthRangeRequest
+	Keyword                string `form:"keyword"`
+	UseTransactionTimezone bool   `form:"use_transaction_timezone"`
+}
+
 // TransactionAmountsResponseItem represents an item of transaction amounts
 type TransactionAmountsResponseItem struct {
 	StartTime int64                                       `json:"startTime"`
@@ -680,6 +700,28 @@ func (s TransactionStatisticTrendsResponseItemSlice) Swap(i, j int) {
 
 // Less reports whether the first item is less than the second one
 func (s TransactionStatisticTrendsResponseItemSlice) Less(i, j int) bool {
+	if s[i].Year != s[j].Year {
+		return s[i].Year < s[j].Year
+	}
+
+	return s[i].Month < s[j].Month
+}
+
+// TransactionStatisticTagTrendsResponseItemSlice represents the slice data structure of TransactionStatisticTagTrendsResponseItem
+type TransactionStatisticTagTrendsResponseItemSlice []*TransactionStatisticTagTrendsResponseItem
+
+// Len returns the count of items
+func (s TransactionStatisticTagTrendsResponseItemSlice) Len() int {
+	return len(s)
+}
+
+// Swap swaps two items
+func (s TransactionStatisticTagTrendsResponseItemSlice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+// Less reports whether the first item is less than the second one
+func (s TransactionStatisticTagTrendsResponseItemSlice) Less(i, j int) bool {
 	if s[i].Year != s[j].Year {
 		return s[i].Year < s[j].Year
 	}
