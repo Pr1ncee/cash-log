@@ -47,15 +47,17 @@
                                 v-model="querySortingType"
                             />
                         </div>
-                        <v-tabs show-arrows class="my-4" direction="vertical"
-                                :disabled="loading" v-model="queryChartDataType">
-                            <v-tab class="tab-text-truncate" :key="dataType.type" :value="dataType.type"
-                                   v-for="dataType in ChartDataType.values(undefined, true)"
-                                   v-show="dataType.isAvailableAnalysisType(queryAnalysisType)">
-                                <span class="text-truncate">{{ tt(dataType.name) }}</span>
-                                <v-tooltip activator="parent" location="right">{{ tt(dataType.name) }}</v-tooltip>
-                            </v-tab>
-                        </v-tabs>
+                        <div class="statistics-data-type-list">
+                            <v-tabs show-arrows class="my-4" direction="vertical"
+                                    :disabled="loading" v-model="queryChartDataType">
+                                <v-tab class="tab-text-truncate" :key="dataType.type" :value="dataType.type"
+                                       v-for="dataType in ChartDataType.values(undefined, true)"
+                                       v-show="dataType.isAvailableAnalysisType(queryAnalysisType)">
+                                    <span class="text-truncate">{{ tt(dataType.name) }}</span>
+                                    <v-tooltip activator="parent" location="right">{{ tt(dataType.name) }}</v-tooltip>
+                                </v-tab>
+                            </v-tabs>
+                        </div>
                     </v-navigation-drawer>
                     <v-main>
                         <v-window class="d-flex flex-grow-1 disable-tab-transition w-100-window-container" v-model="activeTab">
@@ -546,6 +548,7 @@ import { useStatisticsTransactionPageBase } from '@/views/base/statistics/Statis
 
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { type TransactionStatisticsPartialFilter, useStatisticsStore } from '@/stores/statistics.ts';
 
 import services from '@/lib/services.ts';
@@ -670,6 +673,7 @@ const {
 
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 const statisticsStore = useStatisticsStore();
 
 const preciousMetalsPriceData = computed(() => statisticsStore.preciousMetalsPriceData);
@@ -949,10 +953,16 @@ function init(initProps: TransactionStatisticsProps): void {
         return;
     }
 
-    Promise.all([
+    const initLoaders: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({force: false}),
         transactionCategoriesStore.loadAllCategories({force: false})
-    ]).then(() => {
+    ];
+
+    if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        initLoaders.push(transactionTagsStore.loadAllTags({force: false}));
+    }
+
+    Promise.all(initLoaders).then(() => {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             return statisticsStore.loadCategoricalAnalysis({
                 force: false
@@ -961,6 +971,11 @@ function init(initProps: TransactionStatisticsProps): void {
             if (query.value.chartDataType === ChartDataType.PreciousMetals.type) {
                 loadPurchaseMarkers();
                 return statisticsStore.loadPreciousMetals({
+                    force: false
+                }) as Promise<unknown>;
+            }
+            if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+                return statisticsStore.loadTagTrendAnalysis({
                     force: false
                 }) as Promise<unknown>;
             }
@@ -997,6 +1012,10 @@ function reload(force: boolean): Promise<unknown> | null {
         dispatchPromise = statisticsStore.loadPreciousMetals({
             force: force
         });
+    } else if (query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        dispatchPromise = transactionTagsStore.loadAllTags({ force: false }).then(() =>
+            statisticsStore.loadTagTrendAnalysis({ force: force })
+        );
     } else if (query.value.chartDataType === ChartDataType.Overview.type ||
         query.value.chartDataType === ChartDataType.OutflowsByAccount.type ||
         query.value.chartDataType === ChartDataType.ExpenseByAccount.type ||
@@ -1452,6 +1471,11 @@ init(props);
 </script>
 
 <style>
+.statistics-data-type-list {
+    overflow-y: auto;
+    max-height: calc(100vh - 380px);
+}
+
 .statistics-custom-datetime-range {
     line-height: 1rem;
 }

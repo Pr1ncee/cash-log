@@ -5,6 +5,7 @@ import { useSettingsStore } from './setting.ts';
 import { useUserStore } from './user.ts';
 import { useAccountsStore } from './account.ts';
 import { useTransactionCategoriesStore } from './transactionCategory.ts';
+import { useTransactionTagsStore } from './transactionTag.ts';
 import { useExchangeRatesStore } from './exchangeRates.ts';
 
 import { entries, values } from '@/core/base.ts';
@@ -26,12 +27,13 @@ import {
     DEFAULT_ASSET_TRENDS_CHART_DATA_RANGE
 } from '@/core/statistics.ts';
 import { DEFAULT_ACCOUNT_ICON, DEFAULT_CATEGORY_ICON } from '@/consts/icon.ts';
-import { DEFAULT_ACCOUNT_COLOR, DEFAULT_CATEGORY_COLOR } from '@/consts/color.ts';
+import { DEFAULT_ACCOUNT_COLOR, DEFAULT_CATEGORY_COLOR, DEFAULT_CHART_COLORS } from '@/consts/color.ts';
 
 import {
     type TransactionStatisticResponse,
     type TransactionStatisticResponseItem,
     type TransactionStatisticTrendsResponseItem,
+    type TransactionStatisticTagTrendsResponseItem,
     type TransactionStatisticAssetTrendsResponseItem,
     type TransactionStatisticAssetTrendsResponseDataItem,
     type TransactionStatisticResponseItemWithInfo,
@@ -167,6 +169,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
     const userStore = useUserStore();
     const accountsStore = useAccountsStore();
     const transactionCategoriesStore = useTransactionCategoriesStore();
+    const transactionTagsStore = useTransactionTagsStore();
     const exchangeRatesStore = useExchangeRatesStore();
 
     const transactionStatisticsFilter = ref<TransactionStatisticsFilter>({
@@ -192,6 +195,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
     const transactionCategoryStatisticsData = ref<TransactionStatisticResponse | null>(null);
     const transactionCategoryTrendsData = ref<TransactionStatisticTrendsResponseItem[]>([]);
+    const transactionTagTrendsData = ref<TransactionStatisticTagTrendsResponseItem[]>([]);
     const transactionAssetTrendsData = ref<TransactionStatisticAssetTrendsResponseItem[]>([]);
     const preciousMetalsPriceData = ref<PreciousMetalPriceResponse | null>(null);
     const transactionStatisticsStateInvalid = ref<boolean>(true);
@@ -696,7 +700,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         return finalTrendsData;
     });
 
-    const trendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+    const categoryTrendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
         if (!transactionCategoryTrendsDataWithCategoryAndAccountInfo.value || !transactionCategoryTrendsDataWithCategoryAndAccountInfo.value.length) {
             return null;
         }
@@ -742,11 +746,68 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
         sortCategoryTotalAmountItems(totalAmountsTrends, transactionStatisticsFilter.value);
 
-        const trendsData: TransactionTrendsAnalysisData = {
-            items: totalAmountsTrends
-        };
+        return { items: totalAmountsTrends };
+    });
 
-        return trendsData;
+    const tagTrendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+        if (!transactionTagTrendsData.value || !transactionTagTrendsData.value.length) {
+            return null;
+        }
+
+        const combinedDataMap: Record<string, WritableTransactionTrendsAnalysisDataItem> = {};
+
+        for (const trendItem of transactionTagTrendsData.value) {
+            for (const tagAmountItem of trendItem.items) {
+                const tagId = tagAmountItem.tagId;
+                const tag = transactionTagsStore.allTransactionTagsMap[tagId];
+
+                let combinedData = combinedDataMap[tagId];
+
+                if (!combinedData) {
+                    const displayOrder = tag ? tag.displayOrder : 0;
+                    const colorIndex = displayOrder % DEFAULT_CHART_COLORS.length;
+
+                    combinedData = {
+                        name: tag ? tag.name : tagId,
+                        type: 'tag' as TransactionStatisticDataItemType,
+                        id: tagId,
+                        icon: 'las la-tag',
+                        color: DEFAULT_CHART_COLORS[colorIndex] as string,
+                        hidden: tag ? tag.hidden : false,
+                        displayOrders: [tag ? tag.displayOrder : 0],
+                        totalAmount: 0,
+                        items: []
+                    };
+                }
+
+                combinedData.items.push({
+                    year: trendItem.year,
+                    month1base: trendItem.month,
+                    totalAmount: tagAmountItem.amount
+                });
+
+                combinedData.totalAmount += tagAmountItem.amount;
+                combinedDataMap[tagId] = combinedData;
+            }
+        }
+
+        const tagTrends: TransactionTrendsAnalysisDataItem[] = [];
+
+        for (const trendData of values(combinedDataMap)) {
+            tagTrends.push(trendData);
+        }
+
+        tagTrends.sort((a, b) => b.totalAmount - a.totalAmount);
+
+        return { items: tagTrends };
+    });
+
+    const trendsAnalysisData = computed<TransactionTrendsAnalysisData | null>(() => {
+        if (transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return tagTrendsAnalysisData.value;
+        }
+
+        return categoryTrendsAnalysisData.value;
     });
 
     const preciousMetalsTrendsData = computed<TransactionTrendsAnalysisData | null>(() => {
@@ -1408,6 +1469,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         transactionStatisticsFilter.value.keyword = '';
         transactionCategoryStatisticsData.value = null;
         transactionCategoryTrendsData.value = [];
+        transactionTagTrendsData.value = [];
         transactionStatisticsStateInvalid.value = true;
     }
 
@@ -1971,6 +2033,47 @@ export const useStatisticsStore = defineStore('statistics', () => {
         });
     }
 
+    function loadTagTrendAnalysis({ force }: { force: boolean }): Promise<TransactionStatisticTagTrendsResponseItem[]> {
+        return new Promise((resolve, reject) => {
+            services.getTransactionStatisticsTagTrends({
+                startYearMonth: transactionStatisticsFilter.value.trendChartStartYearMonth,
+                endYearMonth: transactionStatisticsFilter.value.trendChartEndYearMonth,
+                keyword: transactionStatisticsFilter.value.keyword,
+                useTransactionTimezone: settingsStore.appSettings.statistics.defaultTimezoneType === TimezoneTypeForStatistics.TransactionTimezone.type
+            }).then(response => {
+                const data = response.data;
+
+                if (!data || !data.success || !data.result) {
+                    reject({ message: 'Unable to retrieve tag income statistics' });
+                    return;
+                }
+
+                if (transactionStatisticsStateInvalid.value) {
+                    updateTransactionStatisticsInvalidState(false);
+                }
+
+                if (force && data.result && isEquals(transactionTagTrendsData.value, data.result)) {
+                    reject({ message: 'Data is up to date', isUpToDate: true });
+                    return;
+                }
+
+                transactionTagTrendsData.value = data.result;
+
+                resolve(data.result);
+            }).catch(error => {
+                logger.error('failed to retrieve tag income statistics', error);
+
+                if (error.response && error.response.data && error.response.data.errorMessage) {
+                    reject({ error: error.response.data });
+                } else if (!error.processed) {
+                    reject({ message: 'Unable to retrieve tag income statistics' });
+                } else {
+                    reject(error);
+                }
+            });
+        });
+    }
+
     function loadAssetTrends({ force }: { force: boolean }): Promise<TransactionStatisticAssetTrendsResponseItem[]> {
         // Also fetch precious metals data in the background for asset trends integration
         services.getPreciousMetalPrices({
@@ -2101,6 +2204,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         transactionStatisticsFilter,
         transactionCategoryStatisticsData,
         transactionCategoryTrendsData,
+        transactionTagTrendsData,
         preciousMetalsPriceData,
         transactionStatisticsStateInvalid,
         // computed states
@@ -2119,6 +2223,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
         getTransactionListPageParams,
         loadCategoricalAnalysis,
         loadTrendAnalysis,
+        loadTagTrendAnalysis,
         loadAssetTrends,
         loadPreciousMetals
     };
